@@ -29,7 +29,7 @@ Paragraph list:
 
 {{ forloop.counter }}.	{{ thing }}{% if forloop.last %}.{% else %};{% endif %}
 
-{%p enfor %}
+{%p endfor %}
 
 GOODBYE {{ var1|upper}}.
 
@@ -40,7 +40,7 @@ Save the file as `TemplateFile.docx`.
 Switch to your favourite repl:
 
 
-```
+```lisp
 (ql:quickload "docxdjula")
 
 (setf djula:*current-compiler* (make-instance 'docxdjula:docx-compiler))
