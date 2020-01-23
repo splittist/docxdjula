@@ -4,8 +4,57 @@
 
 This project is to [Djula](https://github.com/mmontone/djula/) as [python-docx-template](https://github.com/elapouya/python-docx-template/) is to [Jinja2](https://palletsprojects.com/p/jinja).
 
+## Example
+
+Create a docx file (`TemplateFile.docx`) with some Djula variables, tags and filters in your favourite word processor:
+
+```
+Hello {{ var1 }}.
+
+{%p if var2 %}
+
+Text to include if var2 is true.
+
+{%p else %}
+
+Text to include if var2 is false.
+
+{%p endif %}
+
+Inline list: {% for thing in var3 %} This is {{ thing }}. {% endfor %}
+
+Paragraph list:
+
+{%p for thing in var3 %}
+
+{{ forloop.counter }}.	{{ thing }}{% if forloop.last %}.{% else %};{% endif %}
+
+{%p enfor %}
+
+GOODBYE {{ var1|upper}}.
+
+```
+
+Save the file as `TemplateFile.docx`.
+
+Switch to your favourite repl:
 
 
+```
+(ql:quickload "docxdjula")
+
+(setf djula:*current-compiler* (make-instance 'docxdjula:docx-compiler))
+
+(djula:add-template-directory "/path/to/your/template/directory")
+
+(djula:compile-template* "TemplateFile.docx")
+
+(docxdjula:render-docx-template * "/path/to/OutFile.docx" :var1 "World" :var2 t :var3 '("Uno" 2 "trois"))
+```
+
+Open `OutFile.docx` in your word processor.
+
+Profit!
 
 ## License
 

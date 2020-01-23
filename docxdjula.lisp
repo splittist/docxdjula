@@ -2,34 +2,34 @@
 
 (cl:in-package #:docxdjula)
 
-(defclass compiled-template ()
-  ((%pathname :initarg :pathname :accessor template-pathname)
-   (%mdp-function :initarg :mdp-function :accessor template-mdp-function)
-   (%part-functions :initarg :part-functions :accessor template-part-functions))
-  (:default-initargs :part-functions (make-hash-table :test 'equalp)))
+;; (defclass compiled-template ()
+;;   ((%pathname :initarg :pathname :accessor template-pathname)
+;;    (%mdp-function :initarg :mdp-function :accessor template-mdp-function)
+;;    (%part-functions :initarg :part-functions :accessor template-part-functions))
+;;   (:default-initargs :part-functions (make-hash-table :test 'equalp)))
 
-(defmethod print-object ((object compiled-template) stream)
-  (print-unreadable-object (object stream :type t :identity t)
-    (format stream "~A" (template-pathname object))))
+;; (defmethod print-object ((object compiled-template) stream)
+;;   (print-unreadable-object (object stream :type t :identity t)
+;;     (format stream "~A" (template-pathname object))))
 
-(defun compile-template (pathname)
-  (let ((document (open-document pathname))
-	(template (make-instance 'compiled-template :pathname pathname)))
-    (compile-parts document template)))
+;; (defun compile-template (pathname)
+;;   (let ((document (open-document pathname))
+;; 	(template (make-instance 'compiled-template :pathname pathname)))
+;;     (compile-parts document template)))
 
-(defgeneric compile-parts (document template)
-  (:method ((document document) (template compiled-template))
-    (let ((parts (alexandria:flatten
-		  (list (main-document document)
-			(endnotes document)
-			(footnotes document)
-			(headers document)
-			(footers document))))
-	  (func-table (template-part-functions template)))
-      (dolist (part parts)
-	(setf (gethash (opc:part-name part) func-table)
-	      (compile-part part)))
-      template)))
+;; (defgeneric compile-parts (document template)
+;;   (:method ((document document) (template compiled-template))
+;;     (let ((parts (alexandria:flatten
+;; 		  (list (main-document document)
+;; 			(endnotes document)
+;; 			(footnotes document)
+;; 			(headers document)
+;; 			(footers document))))
+;; 	  (func-table (template-part-functions template)))
+;;       (dolist (part parts)
+;; 	(setf (gethash (opc:part-name part) func-table)
+;; 	      (compile-part part)))
+;;       template)))
 
 (defgeneric compile-part (part)
   (:method ((part opc:opc-xml-part))
@@ -38,22 +38,22 @@
 	   (tidy-str (tidy-xml str)))
       (djula::compile-string tidy-str))))
 
-(defgeneric render-template (template outpath &rest vars)
-  (:method ((template compiled-template) outpath &rest vars)
-    (let ((djula::*template-arguments* vars))
-      (let* ((document (open-document (template-pathname template)))
-	     (package (opc-package document)))
-	(maphash
-	 #'(lambda (name function)
-	     (let ((result
-		    (with-output-to-string (s)
-		      (funcall function s)))
-		   (part (opc:get-part package name)))
-	       (docxplora::ensure-xml part) ;; FIXME (a) ensure-xml should return part (b) should be part of get protocol
-	       (setf (opc:xml-root part)
-		     (plump:parse result))))
-	 (template-part-functions template))
-	(opc:save-package package outpath)))))
+;; (defgeneric render-template (template outpath &rest vars)
+;;   (:method ((template compiled-template) outpath &rest vars)
+;;     (let ((djula::*template-arguments* vars))
+;;       (let* ((document (open-document (template-pathname template)))
+;; 	     (package (opc-package document)))
+;; 	(maphash
+;; 	 #'(lambda (name function)
+;; 	     (let ((result
+;; 		    (with-output-to-string (s)
+;; 		      (funcall function s)))
+;; 		   (part (opc:get-part package name)))
+;; 	       (docxplora::ensure-xml part) ;; FIXME (a) ensure-xml should return part (b) should be part of get protocol
+;; 	       (setf (opc:xml-root part)
+;; 		     (plump:parse result))))
+;; 	 (template-part-functions template))
+;; 	(opc:save-package package outpath)))))
 
 ;; Djula meta stuff
 
@@ -137,9 +137,9 @@
       (make-instance 'compiled-docx-template :template-file template-file))))
 
 #|
-(setf djula::*current-compiler* (make-instance 'docx-compiler))
+(setf djula:*current-compiler* (make-instance 'docx-compiler))
 (djula:add-template-directory "/users/cabox/workspace/")
-
+(djula:compile-template* tmpname
 |#
 
 (defun render-docx-template (template outfile &rest vars)
