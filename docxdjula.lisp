@@ -9,12 +9,23 @@
 	   (tidy-str (tidy-xml str)))
       (djula::compile-string tidy-str))))
 
+(defgeneric compile-main-document-part-for-insertion (part)
+  (:method ((part opc:opc-xml-part))
+    (let* ((root (opc:xml-root part))
+	   (body (first (plump:get-elements-by-tag-name root "w:body")))
+	   (new-root (plump:make-root (plump:clone-children body))))
+      (mapcar #'plump:remove-child (plump:get-elements-by-tag-name new-root "w:sectPr"))
+      (let* ((str (plump:serialize new-root nil))
+	     (tidy-str (tidy-xml str)))
+	(djula::compile-string tidy-str)))))
+
 (defclass compiled-docx-template ()
   ((%compiled-template :accessor djula::compiled-template)
    (%linked-templates :initform '() :accessor djula::linked-templates)
    (%template-file :initarg :template-file :initform (error "Provide the template file") :accessor djula::template-file)
    (%template-file-write-date :accessor djula::template-file-write-date)
-   (%part-functions :initarg :part-functions :accessor template-part-functions))
+   (%part-functions :initarg :part-functions :accessor template-part-functions)
+   (%mdp-function :accessor template-main-document-function))
   (:default-initargs :part-functions (make-hash-table :test 'equalp))
   (:metaclass closer-mop:funcallable-standard-class))
 
@@ -40,19 +51,25 @@
       (dolist (part parts)
 	(setf (gethash (opc:part-name part) func-table)
 	      (compile-part part)))
-      (setf (djula::compiled-template template)
+      (setf (template-main-document-function template)
+	    (compile-main-document-part-for-insertion (main-document document))
+	    (djula::compiled-template template)
 	    (with-accessors ((tpf template-part-functions) (tf djula::template-file)) template
-	      #'(lambda (outpath)
-		  (let* ((document (open-document tf))
-			 (package (opc-package document)))
-		    (maphash
-		     #'(lambda (name function)
-			 (let ((result (with-output-to-string (s) (funcall function s)))
-			       (part (opc:get-part package name)))
-			   (docxplora::ensure-xml part) ;; FIXME (a) ensure-xml should return part (b) should be part of get protocol
-			   (setf (opc:xml-root part) (plump:parse result))))
-		     tpf)
-		    (opc:save-package package outpath))))
+	      #'(lambda (destination)
+		  (typecase destination
+		    ((or string pathname)
+		     (let* ((document (open-document tf))
+			    (package (opc-package document)))
+		       (maphash
+			#'(lambda (name function)
+			    (let ((result (with-output-to-string (s) (funcall function s)))
+				  (part (get-part-by-name document name t)))
+			      (setf (opc:xml-root part) (plump:parse result))))
+			tpf)
+		       (opc:save-package package destination)))
+		    (stream
+		     (funcall (template-main-document-function template) destination))
+		    (t (error "Don't know how to operate on ~A" destination)))))
 	    (djula::linked-templates template)
 	    djula::*linked-templates*))))
 
