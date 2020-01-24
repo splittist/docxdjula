@@ -2,60 +2,12 @@
 
 (cl:in-package #:docxdjula)
 
-;; (defclass compiled-template ()
-;;   ((%pathname :initarg :pathname :accessor template-pathname)
-;;    (%mdp-function :initarg :mdp-function :accessor template-mdp-function)
-;;    (%part-functions :initarg :part-functions :accessor template-part-functions))
-;;   (:default-initargs :part-functions (make-hash-table :test 'equalp)))
-
-;; (defmethod print-object ((object compiled-template) stream)
-;;   (print-unreadable-object (object stream :type t :identity t)
-;;     (format stream "~A" (template-pathname object))))
-
-;; (defun compile-template (pathname)
-;;   (let ((document (open-document pathname))
-;; 	(template (make-instance 'compiled-template :pathname pathname)))
-;;     (compile-parts document template)))
-
-;; (defgeneric compile-parts (document template)
-;;   (:method ((document document) (template compiled-template))
-;;     (let ((parts (alexandria:flatten
-;; 		  (list (main-document document)
-;; 			(endnotes document)
-;; 			(footnotes document)
-;; 			(headers document)
-;; 			(footers document))))
-;; 	  (func-table (template-part-functions template)))
-;;       (dolist (part parts)
-;; 	(setf (gethash (opc:part-name part) func-table)
-;; 	      (compile-part part)))
-;;       template)))
-
 (defgeneric compile-part (part)
   (:method ((part opc:opc-xml-part))
     (let* ((root (opc:xml-root part))
 	   (str (plump:serialize root nil))
 	   (tidy-str (tidy-xml str)))
       (djula::compile-string tidy-str))))
-
-;; (defgeneric render-template (template outpath &rest vars)
-;;   (:method ((template compiled-template) outpath &rest vars)
-;;     (let ((djula::*template-arguments* vars))
-;;       (let* ((document (open-document (template-pathname template)))
-;; 	     (package (opc-package document)))
-;; 	(maphash
-;; 	 #'(lambda (name function)
-;; 	     (let ((result
-;; 		    (with-output-to-string (s)
-;; 		      (funcall function s)))
-;; 		   (part (opc:get-part package name)))
-;; 	       (docxplora::ensure-xml part) ;; FIXME (a) ensure-xml should return part (b) should be part of get protocol
-;; 	       (setf (opc:xml-root part)
-;; 		     (plump:parse result))))
-;; 	 (template-part-functions template))
-;; 	(opc:save-package package outpath)))))
-
-;; Djula meta stuff
 
 (defclass compiled-docx-template ()
   ((%compiled-template :accessor djula::compiled-template)
@@ -139,7 +91,7 @@
 #|
 (setf djula:*current-compiler* (make-instance 'docx-compiler))
 (djula:add-template-directory "/users/cabox/workspace/")
-(djula:compile-template* tmpname
+(djula:compile-template* tmpname)
 |#
 
 (defun render-docx-template (template outfile &rest vars)
@@ -194,12 +146,25 @@
         |
         {%(?:(?!%}).)*|    # same for {% tags
         {\#(?:(?!\#}).)*|  # and for  {# comments
-        {$(?:(?!$}).)*|    # and for  {$ verbatim
+        {\$(?:(?!\$}).)*|    # and for  {$ verbatim
         {_(?:(?!_}).)*     # and      {_ translation
         "
      str
      #'stags
      :simple-calls t)))
+
+(defparameter +all-the-tags+
+   #?rx"
+     (?s)
+     {{                 # opening pair
+     (?:(?!}}).)*       # any amount of thing until looking at closing pair
+     }}                 # the closing pair
+     |
+     {%(?:(?!%}).)*%}|    # same for {% tags
+     {\#(?:(?!\#}).)*\#}|  # and for  {# comments
+     {\$(?:(?!\$}).)*$}|    # and for  {$ verbatim
+     {_(?:(?!_}).)*_}     # and      {_ translation
+     ") 
 
 (defun strip-enclosing-wml-tag (str p)
   (cl-ppcre:regex-replace-all
@@ -207,9 +172,9 @@
       (?s)                     # . matches #\Newline
       <w:${p}[\ >]             # opening tag
       (?:(?!<w:${p}[ >]).)*    # stuff that isn't an opening tag
-      ({{|{%|{\#|{$|{_)${p}\   # opening braces (group 0 below) followed by tagname and a #\Space
-      ([^}%\#$_]*              # stuff that isn't a tag char FIXME too amy tag chars?
-       (?:}}|%}|\#}|$}|_}))    #  until and including closing braces (group 1 below)
+      ({{|{%|{\#|{\$|{_)${p}\   # opening braces (group 0 below) followed by tagname and a #\Space
+      (.*?                     # stuff that isn't a tag char FIXME nested tags
+       (?:}}|%}|\#}|\$}|_}))    #  until and including closing braces (group 1 below)
       .*?</w:${p}>             # stuff until the next closing tag (not captured)
       "
    str
@@ -221,7 +186,7 @@
 	     (dolist (pair sublist match)
 	       (setf match (substitute (car pair) (cdr pair) match)))))
       (cl-ppcre:regex-replace-all
-       "(?<=\{[\{%#$_])(?:.*?)(?=[\}%#$_]})"
+       +all-the-tags+
        str
        #'subs
        :simple-calls t))))
@@ -235,3 +200,26 @@
   (setf str (strip-enclosing-wml-tag str "tc"))
   (setf str (clean-tags str))
   str)
+
+;;; utilities
+
+(defun list-tags-str (cleanstr) ;; FIXME - include closing or exclude opening delims.
+  (cl-ppcre:all-matches-as-strings
+   +all-the-tags+
+   cleanstr))
+
+(defun list-tags-document (path)
+  (let* ((document (open-document path))
+	 (parts (alexandria:flatten
+		 (list (main-document document)
+		       (endnotes document)
+		       (footnotes document)
+		       (headers document)
+		       (footers document)))))
+    (alexandria:mappend
+     (lambda (part)
+       (let* ((root (opc:xml-root part))
+	      (str (plump:serialize root nil))
+	      (tidystr (tidy-xml str)))
+	 (list-tags-str tidystr)))
+     parts)))
