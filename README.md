@@ -86,7 +86,7 @@ May be used, once the above compiler setting is made.
 
 _function_ **RENDER-TEMPLATE\***
 
-Do not use. Instead use **DOCXDJULA:RENDER-TEMPLATE\*** `template` `outpath` _&rest_ `template-arguments`, where `outpath` is the pathname-designator for the place where the document produced by rendering `template` in the context of `template-arguments`.
+Do not use. Instead use **DOCXDJULA:RENDER-TEMPLATE\*** `template` `outpath` _&rest_ `template-arguments`, where `outpath` is the pathname-designator for the place where the document produced by rendering `template` in the context of `template-arguments` will be saved.
 
 ### Variables
 
@@ -98,7 +98,7 @@ May be used with care, and with exceptions (see below).
 
 Because **docxdjula** templates are assumed to be produced in a wysiwyg word processor, whitespace in general (including paragraphs and table rows) is significant. Following the lead of python-docx-template, **docxdjula** provides tag versions that provide for a natural expression of tag logic at the expense of a little extra syntax.
 
-A tag beginning `{%p`, for example, will be treated such that when the template is rendered the paragraph containing that tag is removed. This allows a conditional paragraph to be bracketed by two paragraphs containing `{%p if foop %}` and `{%p endif %}` respectively, and when the document is rendered, the result will look as intended. If the `p` was omitted, the final document would include (probably empty) paragraphs where the `if` and `endif` tags had been. You can see this being used above in the example with `for` for the paragraph list.
+A tag beginning `{%p`, for example, will be treated such that when the template is rendered the paragraph containing that tag is removed. This allows a conditional paragraph to be bracketed by two paragraphs containing `{%p if foop %}` and `{%p endif %}` respectively, and when the document is rendered, the result will look as intended. If the `p` was omitted, the final document would include (probably empty) paragraphs where the `if` and `endif` tags had been. You can see this being used above in the example (and with `for` in the paragraph list).
 
 A similar facility is provided for _table rows_ (`{%tr`), _table cells_ (`{%tc`) and _runs_ (`{%r`). Note that the consequences are undefined (but unlikely to be good) if such a tag is used twice in the same context (e.g. two `{%p`s in the one paragraph).
 
@@ -160,7 +160,7 @@ _tag_ **lisp**
 
 May be used.
 
-_tags_ Javascript tags
+_tags_ __** Various Javascript tags**__
 
 Not supported.
 
@@ -174,7 +174,7 @@ The `{#` to `#}` comment syntax may be used.
 
 ### Verbatim
 
-The `{$` to `#}` verbatim syntax may be used.
+The `{$` to `$}` verbatim syntax may be used.
 
 ### Filters
 
