@@ -9,15 +9,22 @@
 	   (tidy-str (tidy-xml str)))
       (djula::compile-string tidy-str))))
 
+(defun tidy-mdp-string (str)
+  (tidy-xml (with-output-to-string (s)
+	      (lquery:$1 (initialize str)
+			 "w::body"
+			 (contents)
+			 (not "w::sectPr")
+			 (serialize s)))))
+
+(defgeneric get-xml-part-string (part)
+  (:method ((part opc:opc-xml-part))
+    (plump:serialize (opc:xml-root part) nil)))
+
 (defgeneric compile-main-document-part-for-insertion (part)
   (:method ((part opc:opc-xml-part))
-    (let* ((root (opc:xml-root part))
-	   (body (first (plump:get-elements-by-tag-name root "w:body")))
-	   (new-root (plump:make-root (plump:clone-children body))))
-      (mapcar #'plump:remove-child (plump:get-elements-by-tag-name new-root "w:sectPr"))
-      (let* ((str (plump:serialize new-root nil))
-	     (tidy-str (tidy-xml str)))
-	(djula::compile-string tidy-str)))))
+    (let* ((str (tidy-mdp-string (get-xml-part-string part))))
+      (djula::compile-string str))))
 
 (defclass compiled-docx-template ()
   ((%compiled-template :accessor djula::compiled-template)
@@ -54,7 +61,9 @@
       (setf (template-main-document-function template)
 	    (compile-main-document-part-for-insertion (main-document document))
 	    (djula::compiled-template template)
-	    (with-accessors ((tpf template-part-functions) (tf djula::template-file)) template
+	    (with-accessors ((tpf template-part-functions)
+			     (tf djula::template-file)
+			     (mdf template-main-document-function)) template
 	      #'(lambda (destination)
 		  (typecase destination
 		    ((or string pathname)
@@ -68,7 +77,7 @@
 			tpf)
 		       (opc:save-package package destination)))
 		    (stream
-		     (funcall (template-main-document-function template) destination))
+		     (funcall mdf destination))
 		    (t (error "Don't know how to operate on ~A" destination)))))
 	    (djula::linked-templates template)
 	    djula::*linked-templates*))))
@@ -105,8 +114,22 @@
 	  (djula::*block-alist* nil))
       (make-instance 'compiled-docx-template :template-file template-file))))
 
+(defclass docx-file-store (djula:file-store)
+  ())
+
+(defmethod djula:fetch-template ((store docx-file-store) name)
+  (with-slots (djula::current-path)
+      store
+    (setf djula::current-path name)
+    (and name
+	 (let* ((template (djula:find-template store name))
+		(document (open-document template))
+		(mdp (main-document document)))
+	   (tidy-mdp-string (get-xml-part-string mdp))))))
+
 #|
 (setf djula:*current-compiler* (make-instance 'docx-compiler))
+(setf djula:*current-store* (make-instance 'docx-file-store))
 (djula:add-template-directory "/users/cabox/workspace/")
 (djula:compile-template* tmpname)
 |#
