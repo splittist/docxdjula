@@ -6,6 +6,9 @@
   :license "MIT"
   :version "0.0.1"
   :serial t
-  :depends-on (#:djula #:docxplora #:cl-ppcre #:cl-interpol #:uiop #:alexandria #:lquery)
+  :depends-on (#:djula #:docxplora
+		       #:cl-ppcre #:cl-interpol
+		       #:uiop #:alexandria #:split-sequence
+		       #:lquery)
   :components ((:file "package")
 	       (:file "docxdjula")))

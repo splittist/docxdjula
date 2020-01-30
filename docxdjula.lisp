@@ -243,7 +243,7 @@
 
 ;;; utilities
 
-(defun list-tags-str (cleanstr) ;; FIXME - include closing or exclude opening delims.
+(defun list-tags-str (cleanstr) 
   (cl-ppcre:all-matches-as-strings
    +all-the-tags+
    cleanstr))
@@ -263,3 +263,32 @@
 	      (tidystr (tidy-xml str)))
 	 (list-tags-str tidystr)))
      parts)))
+
+(defun split/ws (string)
+  (split-sequence:split-sequence-if (alexandria:rcurry #'member '(#\Space #\Tab) :test #'equal)
+				    string
+				    :remove-empty-subseqs t))
+
+(defun extract-useful-items (tags-list)
+  (let ((parsed-tags (mapcar #'djula::parse-template-string tags-list))
+	(variables '())
+	(ifs '())
+	(fors '())
+	(others '()))
+    (dolist (tag-list parsed-tags)
+      (alexandria:destructuring-case (car tag-list)
+	((:unparsed-variable v-string)
+	 (push (string-trim " " v-string) variables))
+	((:unparsed-tag t-string)
+	 (destructuring-bind (tag-name &rest rest)
+	     (split/ws t-string)
+	   (cond
+	     ((string-equal "if" tag-name)
+	      (push rest ifs))
+	     ((string-equal "for" tag-name)
+	      (push rest fors))
+	     (t
+	      (push (cons tag-name rest) others)))))
+	((t &rest rest)
+	 (push rest others))))
+    (values variables ifs fors others)))
