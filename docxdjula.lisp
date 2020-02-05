@@ -278,17 +278,28 @@
     (dolist (tag-list parsed-tags)
       (alexandria:destructuring-case (car tag-list)
 	((:unparsed-variable v-string)
-	 (push (string-trim " " v-string) variables))
+	 (pushnew (string-trim " " v-string) variables :test (function string-equal)))
 	((:unparsed-tag t-string)
 	 (destructuring-bind (tag-name &rest rest)
 	     (split/ws t-string)
 	   (cond
 	     ((string-equal "if" tag-name)
-	      (push rest ifs))
+	      (cond
+		((= 1 (length rest))
+		 (pushnew (first rest) variables :test (function string-equal)))
+		((= 2 (length rest))
+		 (pushnew (second rest) variables :test (function string-equal)))
+		(t (push rest ifs))))
 	     ((string-equal "for" tag-name)
 	      (push rest fors))
 	     (t
-	      (push (cons tag-name rest) others)))))
+	      (unless (member tag-name `("endif" "else") :test (function string-equal))
+		(push (cons tag-name rest) others))))))
 	((t &rest rest)
 	 (push rest others))))
-    (values variables ifs fors others)))
+    (values (sort variables (function string-lessp)) ifs fors others)))
+
+(defparameter +NEWLINE-XML+ "</w:t><w:br /><w:t xml:space=\"preserve\">")
+
+(djula::def-filter :xlinebreaksbr (it)
+  (cl-ppcre:regex-replace-all "\\n" (princ-to-string it) +NEWLINE-XML+))
