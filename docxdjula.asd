@@ -11,4 +11,5 @@
 		       #:uiop #:alexandria #:split-sequence
 		       #:lquery)
   :components ((:file "package")
+	       (:file "regex")
 	       (:file "docxdjula")))
