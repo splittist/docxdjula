@@ -12,4 +12,5 @@
 		       #:lquery)
   :components ((:file "package")
 	       (:file "regex")
-	       (:file "docxdjula")))
+	       (:file "docxdjula")
+	       (:file "questionnaire")))

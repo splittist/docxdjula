@@ -16,32 +16,31 @@ Nevertheless, treated with care, **docxdjula** provides a simple but powerful do
 
 Create a docx file (`TemplateFile.docx`) with some Djula variables, tags and filters in your favourite word processor:
 
-```
-Hello {{ var1 }}.
 
-{%p if var2 %}
+> Hello {{ var1 }}.
+> 
+> {%p if var2 %}
+> 
+> Text to include if var2 is true.
+> 
+> {%p else %}
+> 
+> Text to include if var2 is false.
+> 
+> {%p endif %}
+> 
+> Inline list: {% for thing in var3 %} This is {{ thing }}. {% endfor %}
+> 
+> Paragraph list:
+> 
+> {%p for thing in var3 %}
+> 
+> {{ forloop.counter }}.	{{ thing }}{% if forloop.last %}.{% else %};{% endif %}
+> 
+> {%p endfor %}
+> 
+> GOODBYE {{ var1|upper}}.
 
-Text to include if var2 is true.
-
-{%p else %}
-
-Text to include if var2 is false.
-
-{%p endif %}
-
-Inline list: {% for thing in var3 %} This is {{ thing }}. {% endfor %}
-
-Paragraph list:
-
-{%p for thing in var3 %}
-
-{{ forloop.counter }}.	{{ thing }}{% if forloop.last %}.{% else %};{% endif %}
-
-{%p endfor %}
-
-GOODBYE {{ var1|upper}}.
-
-```
 
 Save the file as `TemplateFile.docx`.
 
@@ -104,7 +103,7 @@ A similar facility is provided for _table rows_ (`{%tr`), _table cells_ (`{%tc`)
 
 _tags_ **block**, **extends**, and **super**
 
-Not currently supported. May be supported in future.
+May be used, but with limitations. In particular, only the main story of the `super` template will be used (no headers, footers, footnotes or endnotes etc).
 
 _tag_ **comment**
 
@@ -160,7 +159,7 @@ _tag_ **lisp**
 
 May be used.
 
-_tags_ __** Various Javascript tags**__
+_tags_ __**Various Javascript tags**__
 
 Not supported.
 
@@ -294,9 +293,9 @@ May be used.
 
 ### Template Inheritance
 
-Not currently supported.
+Somewhat supported. (See above.)
 
-# Internationalization
+### Internationalization
 
 The `{_` to `_}` translation syntax may be used.
 
@@ -316,26 +315,12 @@ May be used.
 
 TODO
 
+### Questionnaires
 
-## License
+One way of collecting the template arguments (to be bound to `djula:\*template-arguments\*` when rendering a template) is with 'questionnaire', being a Word document containing a table, the first row of which contains a cell with the text "Variable" and another with the text "Answer" (ignoring case). The entries in the corresponding columns are extracted into an alist, with the text in the "variable" cells interned into the `keyword` package. The "answer" cells are treated as plain text. (This may change.)
 
-Copyright 2020 John Q. Splittist
+To make your questionnaire aesthetically pleasing, you can hide the first row and the "answer" column, using the facilities (or workarounds) provided by your word processor, and add whatever other columns (e.g. "Question", "Examples") or formatting you wish.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy 
-of this software and associated documentation files (the "Software"), to deal 
-in the Software without restriction, including without limitation the rights 
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
-copies of the Software, and to permit persons to whom the Software is furnished 
-to do so, subject to the following conditions:
+_function_ **EXTRACT-TEMPLATE-ARGUMENTS** `document`
 
-The above copyright notice and this permission notice shall be included 
-in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
-THE SOFTWARE.
-
+Extracts variables and values from `document` as above, where `document` can be a pathname, a string denoting the path, or a `DOCXPLORA:DOCUMENT` object.

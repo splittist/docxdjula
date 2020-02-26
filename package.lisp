@@ -7,4 +7,5 @@
   (:use #:cl #:docxplora)
   (:export
    #:docx-compiler
-   #:render-docx-template))
+   #:render-docx-template
+   #:extract-template-arguments))
