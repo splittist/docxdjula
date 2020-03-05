@@ -59,6 +59,22 @@ Switch to your favourite repl:
 
 Open `OutFile.docx` in your word processor.
 
+> Hello World.
+>
+> Text to include if var2 is true.
+>
+> Inline list: This is Uno.  This is2.  This istrois.
+>
+> Paragraph list:
+>
+> 1. Uno;
+>
+> 2. 2;
+>
+> 3. trois.
+>
+> GOODBYE WORLD.
+
 Profit!
 
 ## Aims
@@ -97,7 +113,7 @@ A tag beginning `{%p`, for example, will be treated such that when the template 
 
 A similar facility is provided for _table rows_ (`{%tr`), _table cells_ (`{%tc`) and _runs_ (`{%r`). Note that the consequences are undefined (but unlikely to be good) if such a tag is used twice in the same context (e.g. two `{%p`s in the one paragraph).
 
-:heavy_check_marks: _tags_ **block**, **extends**, and **super**
+:heavy_check_mark: :heavy_exclamation_mark: _tags_ **block**, **extends**, and **super**
 
 May be used, but with limitations. In particular, only the main story of the `super` template will be used (no headers, footers, footnotes or endnotes etc).
 
@@ -105,7 +121,7 @@ May be used, but with limitations. In particular, only the main story of the `su
 
 :heavy_check_mark: _tag_ **cycle**
 
-_tag_ **debug**
+:heavy_exclamation_mark: _tag_ **debug**
 
 Partially supported (no fancy debugging information).
 
