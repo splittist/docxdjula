@@ -1,7 +1,5 @@
 # docxdjula
 
-### _John Q. Splittist <splittist@splittist.com>_
-
 This project is to [Djula](https://github.com/mmontone/djula/) as [python-docx-template](https://github.com/elapouya/python-docx-template/) is to [Jinja2](https://palletsprojects.com/p/jinja).
 
 That is, it uses as much of Djula as makes sense to provide simple templating facilities for Open Office XML WordprocessingML documents - basically, those `.docx` files produced by or for Microsoft Word.
@@ -71,19 +69,17 @@ As regards Djula, there is no desire to enable all its functionality to be used 
 
 ### API
 
-_function_ **ADD-TEMPLATE-DIRECTORY**
+:heavy_check_mark: _function_ **ADD-TEMPLATE-DIRECTORY**
 
-May be used.
-
-_parameter_ **\*CURRENT-COMPILER\***
+:heavy_check_mark: _parameter_ **\*CURRENT-COMPILER\***
 
 Should be set to `(make-instance 'docxdjula:docx-compiler)`.
 
-_function_ **COMPILE-TEMPLATE\***
+:heavy_check_mark: _function_ **COMPILE-TEMPLATE\***
 
 May be used, once the above compiler setting is made.
 
-_function_ **RENDER-TEMPLATE\***
+:x: _function_ **RENDER-TEMPLATE\***
 
 Do not use. Instead use **DOCXDJULA:RENDER-TEMPLATE\*** `template` `outpath` _&rest_ `template-arguments`, where `outpath` is the pathname-designator for the place where the document produced by rendering `template` in the context of `template-arguments` will be saved.
 
@@ -101,39 +97,27 @@ A tag beginning `{%p`, for example, will be treated such that when the template 
 
 A similar facility is provided for _table rows_ (`{%tr`), _table cells_ (`{%tc`) and _runs_ (`{%r`). Note that the consequences are undefined (but unlikely to be good) if such a tag is used twice in the same context (e.g. two `{%p`s in the one paragraph).
 
-_tags_ **block**, **extends**, and **super**
+:heavy_check_marks: _tags_ **block**, **extends**, and **super**
 
 May be used, but with limitations. In particular, only the main story of the `super` template will be used (no headers, footers, footnotes or endnotes etc).
 
-_tag_ **comment**
+:heavy_check_mark: _tag_ **comment**
 
-May be used.
-
-_tag_ **cycle**
-
-May be used.
+:heavy_check_mark: _tag_ **cycle**
 
 _tag_ **debug**
 
 Partially supported (no fancy debugging information).
 
-_tag_ **filter**
+:x: _tag_ **filter**
 
-Not currently supported.
+:heavy_check_mark: _tag_ **firstof**
 
-_tag_ **firstof**
+:heavy_check_mark: _tag_ **for** and variables.
 
-May be used.
+:heavy_check_mark: _tags_ **if**, **ifchanged**, **ifequal**, **ifnotequal**
 
-_tag_ **for**
-
-May be used, along with its variables.
-
-_tags_ **if**, **ifchanged**, **ifequal**, **ifnotequal**
-
-May be used.
-
-_tag_ **include**
+:heavy_check_mark: _tag_ **include**
 
 May be used, with the following restrictions:
 
@@ -143,153 +127,87 @@ May be used, with the following restrictions:
 
 * The included document should have only one section (no section breaks) (Note: this restriction may be removed in future)
 
-_tags_ **set-language**, **show-language**
+:heavy_check_mark: _tags_ **set-language**, **show-language**
 
-May be used.
+:heavy_check_mark: _tag_ **set-package**
 
-_tag_ **set-package**
+:heavy_check_mark: _tag_ **set**
 
-May be used.
+:heavy_check_mark: _tag_ **lisp**
 
-_tag_ **set**
+:x: _tags_ __**Various Javascript tags**__
 
-May be used.
-
-_tag_ **lisp**
-
-May be used.
-
-_tags_ __**Various Javascript tags**__
-
-Not supported.
-
-_tag_ **autoescape**
-
-Not supported.
+:x: _tag_ **autoescape**
 
 ### Comments
 
-The `{#` to `#}` comment syntax may be used.
+:heavy_check_mark: The `{#` to `#}` comment syntax may be used.
 
 ### Verbatim
 
-The `{$` to `$}` verbatim syntax may be used.
+:heavy_check_mark: The `{$` to `$}` verbatim syntax may be used.
 
 ### Filters
 
 These are generally supported, noting that the various (`html`-)escaping tags are not helpful.
 
-_filter_ **add**
+:heavy_check_mark: _filter_ **add**
 
-May be used.
+:x: _filter_ **addslashes**
 
-_filter_ **addslashes**
+:heavy_check_mark: _filter_ **capfirst**
 
-Not supported.
+:heavy_check_mark: _filter_ **cut**
 
-_filter_ **capfirst**
+:heavy_check_mark: _filter_ **date**
 
-May be used.
+:heavy_check_mark: _filter_ **time**
 
-_filter_ **cut**
+:heavy_check_mark: _filter_ **datetime**
 
-May be used.
+:heavy_check_mark: _filter_ **default**
 
-_filter_ **date**
+:heavy_check_mark: _filter_ **sort**
 
-May be used.
+:heavy_check_mark: _filter_ **reverse**
 
-_filter_ **time**
+:heavy_check_mark: _filter_ **first**
 
-May be used.
+:heavy_check_mark: _filter_ **join**
 
-_filter_ **datetime**
+:heavy_check_mark: _filter_ **last**
 
-May be used.
+:heavy_check_mark: _filter_ **length**
 
-_filter_ **default**
+:x: _filter_ **linebreaks**
 
-May be used.
+But see _filter_ **xlinebreaks**.
 
-_filter_ **sort**
+:x: _filter_ **linebreaksbr**
 
-May be used.
+:heavy_check_mark: _filter_ **lower**
 
-_filter_ **reverse**
+:heavy_check_mark: _filter_ **safe**
 
-May be used.
+:heavy_check_mark: _filter_ **slice**
 
-_filter_ **first**
+:heavy_check_mark: _filter_ **format**
 
-May be used.
+:heavy_check_mark: _filter_ **time**
 
-_filter_ **join**
+:heavy_check_mark: _filter_ **truncatechars**
 
-May be used.
+:heavy_check_mark: _filter_ **upper**
 
-_filter_ **last**
+:x: _filter_ **urlencode**
 
-May be used.
+:x: _filter_ **force-esacape**
 
-_filter_ **length**
+:heavy_check_mark: _filter_ **replace**
 
-May be used.
+:heavy_check_mark: _filter_ **with**
 
-_filter_ **linebreaks**
-
-Not supported.
-
-_filter_ **linebreaksbr**
-
-Not supported.
-
-_filter_ **lower**
-
-May be used.
-
-_filter_ **safe**
-
-Not supported.
-
-_filter_ **slice**
-
-May be used.
-
-_filter_ **format**
-
-May be used.
-
-_filter_ **time**
-
-May be used.
-
-_filter_ **truncatechars**
-
-May be used.
-
-_filter_ **upper**
-
-May be used.
-
-_filter_ **urlencode**
-
-Not supported.
-
-_filter_ **force-esacape**
-
-Not supported.
-
-_filter_ **replace**
-
-May be used.
-
-_filter_ **with**
-
-May be used.
-
-_filter_ **scan**
-
-May be used.
+:heavy_check_mark: _filter_ **scan**
 
 ### Template Inheritance
 
@@ -297,19 +215,13 @@ Somewhat supported. (See above.)
 
 ### Internationalization
 
-The `{_` to `_}` translation syntax may be used.
+:heavy_check_mark: The `{_` to `_}` translation syntax may be used.
 
-_tag_ **trans**
+:heavy_check_mark: _tag_ **trans**
 
-May be used.
+:heavy_check_mark: _filter_ **trans**
 
-_filter_ **trans**
-
-May be used.
-
-_parameter_ **\*djula:current-language\***
-
-May be used.
+:heavy_check_mark: _parameter_ **\*djula:current-language\***
 
 ### Error Handling & Rest of API
 
@@ -317,7 +229,7 @@ TODO
 
 ### Questionnaires
 
-One way of collecting the template arguments (to be bound to `djula:\*template-arguments\*` when rendering a template) is with 'questionnaire', being a Word document containing a table, the first row of which contains a cell with the text "Variable" and another with the text "Answer" (ignoring case). The entries in the corresponding columns are extracted into an alist, with the text in the "variable" cells interned into the `keyword` package. The "answer" cells are treated as plain text. (This may change.)
+One way of collecting the template arguments (to be bound to `djula:*template-arguments*` when rendering a template) is with 'questionnaire', being a Word document containing a table, the first row of which contains a cell with the text "Variable" and another with the text "Answer" (ignoring case). The entries in the corresponding columns are extracted into an alist, with the text in the "variable" cells interned into the `keyword` package. The "answer" cells are treated as plain text. (This may change.)
 
 To make your questionnaire aesthetically pleasing, you can hide the first row and the "answer" column, using the facilities (or workarounds) provided by your word processor, and add whatever other columns (e.g. "Question", "Examples") or formatting you wish.
 
