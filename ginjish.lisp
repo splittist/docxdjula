@@ -380,7 +380,7 @@
 
 (defrule template (* (or t-statement #+(or)t-expression t-comment matter)))
 
-;;; comment
+;;; t-comment
 
 (defrule t-comment (and t-comment-start comment-content t-comment-end)
   (:constant nil))
@@ -390,7 +390,7 @@
 (defrule t-expression (and t-expression-start ws* expression ws* t-expression-end)
   (:function third))
 
-;;; statement
+;;; t-statement
     
 (defrule t-statement t-raw)
 
@@ -406,3 +406,37 @@
 
 (defrule t-raw-end (and t-statement-start ws* "endraw" ws* t-statement-end)
   (:constant nil))
+
+;; block/endblock identifier
+;; extends (or string identifier)
+;; for
+;; if
+#|
+if_stmt ::=  "if" assignment_expression ":" suite
+             ("elif" assignment_expression ":" suite)*
+             ["else" ":" suite]
+
+(defrule t-if-start)
+(defrule t-if-true-matter)
+(defrule t-if-elif)
+(defrule t-if-elif-matter)
+(defrule t-if else)
+(defrule t-if-false-matter)
+(defrule t-if-end)
+|#
+;; macro / call
+;; filter identifier
+;; set
+;; include
+;; import
+;; from
+;; with
+;; autoescape
+
+;;; t-expression
+
+;; NB pipe syntax is or-expr
+
+(defrule t-expression (and t-expression-start ws* expression ws* t-expression-end)
+  (:lambda (e)
+    (list :t-expression (third e))))
