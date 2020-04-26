@@ -144,7 +144,14 @@
 (defrule id-cont (alphanumeric_ character))
 
 (defrule identifier (and id-start (* id-cont))
-  (:text t))
+  (:lambda (i)
+    (let ((s (text i)))
+      (serapeum:string-case s
+	(("true" "True") t)
+	(("false" "False") nil)
+	(("none" "None") nil)
+	(t s)))))
+	
 
 ;;; literals
 
@@ -378,7 +385,9 @@
   (:lambda (m)
     (list :matter (text m))))
 
-(defrule template (* (or t-statement #+(or)t-expression t-comment matter)))
+(defrule suite (* (or t-statement t-expression t-comment matter))
+  (:lambda (s)
+    `(:suite ,s)))
 
 ;;; t-comment
 
@@ -387,12 +396,9 @@
 
 (defrule comment-content (* (not t-comment-end)))
 
-(defrule t-expression (and t-expression-start ws* expression ws* t-expression-end)
-  (:function third))
-
 ;;; t-statement
     
-(defrule t-statement t-raw)
+(defrule t-statement (or t-raw t-if t-for t-set-block t-set t-autoescape))
 
 (defrule t-raw (and t-raw-start raw-content t-raw-end)
   (:lambda (r)
@@ -407,31 +413,153 @@
 (defrule t-raw-end (and t-statement-start ws* "endraw" ws* t-statement-end)
   (:constant nil))
 
-;; block/endblock identifier
-;; extends (or string identifier)
 ;; for
+#|
+for_stmt ::= "for" target_list "in" expression_list ":" suite
+             ["else" ":" suite]
+
+target_list ::= target ("," target)* [","]
+target      ::= identifier
+                | "(" [target_list] ")"
+                | "[" [target_list] "]"
+                | attributeref
+                | subscription
+                | slicing
+                | "*" target
+|#
+(defrule t-for (and t-for-start suite (? (and t-for-else suite)) t-for-end)
+  (:destructure ((target-list expression-list) suite &optional else-part &rest end)
+    (declare (ignore end))
+    `(:if (null ,expression-list)
+	  ,(second else-part)
+	  (:for ,target-list ,expression-list ,suite))))
+
+(defrule t-for-start (and (and t-statement-start ws* "for" ws) target-list (and ws "in" ws) expression-list (and ws* t-statement-end))
+  (:destructure (for-keyword target-list in-keyword expression-list &rest end)
+    (declare (ignore for-keyword in-keyword end))
+    (list target-list expression-list)))
+
+(defrule t-for-else (and t-statement-start ws* "else" ws* t-statement-end)
+  (:constant nil))
+
+(defrule t-for-end (and t-statement-start ws* "endfor" ws* t-statement-end)
+  (:constant nil))
+
+(defrule target-list (and target (* (and ws* "," ws* target)) (? (and ws* ",")))
+  (:lambda (l)
+    `(,(first l) ,@(mapcar #'fourth (second l)))))
+
+(defrule target (or tuple-target
+		    list-target
+		    attributeref
+		    subscription
+		    slicing
+		    identifier))
+
+(defrule tuple-target (and "(" ws* (? target-list) ws* ")")
+  (:lambda (e)
+    (if (> 1 (length (third e)))
+	`(:tuple ,(third e))
+	(third e))))
+
+(defrule list-target (and "[" ws* (? target-list) ws* "]")
+  (:lambda (l)
+    `(:list ,(third l))))
+
 ;; if
 #|
 if_stmt ::=  "if" assignment_expression ":" suite
              ("elif" assignment_expression ":" suite)*
              ["else" ":" suite]
-
-(defrule t-if-start)
-(defrule t-if-true-matter)
-(defrule t-if-elif)
-(defrule t-if-elif-matter)
-(defrule t-if else)
-(defrule t-if-false-matter)
-(defrule t-if-end)
 |#
+
+(defrule t-if (and t-if-start suite (* (and t-if-elif suite)) (? (and t-if-else suite)) t-if-end)
+  (:destructure (test then &optional elifs else &rest end)
+    (declare (ignore end))
+    `(:cond (,test ,then)
+	    ,@(mapcar (lambda (elif) (list (car elif) (cadr elif))) elifs)
+	    (t ,(second else)))))
+
+(defrule t-if-start (and (and t-statement-start ws* "if" ws) expression (and ws* t-statement-end))
+  (:function second))
+
+(defrule t-if-elif (and (and t-statement-start ws* "elif" ws) expression (and ws* t-statement-end))
+  (:function second))
+
+(defrule t-if-else (and t-statement-start ws* "else" ws* t-statement-end)
+  (:constant nil))
+
+(defrule t-if-end (and t-statement-start ws* "endif" ws* t-statement-end)
+  (:constant nil))
+
+;; block/endblock identifier
+;; extends (or string identifier)
 ;; macro / call
 ;; filter identifier
-;; set
 ;; include
 ;; import
 ;; from
 ;; with
 ;; autoescape
+
+(defvar *autoescape* nil)
+
+(defrule t-autoescape (and t-autoescape-start suite t-autoescape-end)
+  (:destructure (start suite end)
+    (declare (ignore end))
+    `(:let ((*autoescape* ,start)) ,suite)))
+		 
+(defrule t-autoescape-start (and t-statement-start ws* "autoescape" ws identifier ws* t-statement-end)
+  (:function fifth))
+
+(defrule t-autoescape-end (and t-statement-start ws* "endautoescape" ws* t-statement-end)
+  (:constant nil))
+
+;; context
+
+(defvar *context*)
+
+(defstruct (context
+	     (:constructor make-context (&optional %parent)))
+  (%table (make-hash-table :test #'equal))
+  %parent)
+
+(defun lookup/direct (name &optional (context *context*))
+  (values (gethash name (context-%table context))))
+
+(defun lookup (name &optional (context *context*))
+  (or (lookup/direct name context)
+      (alexandria:when-let ((parent (context-%parent context)))
+	(lookup name parent))))
+
+(defun (setf lookup) (new-value name &optional (context *context*))
+  (when (lookup/direct name context)
+    (error "~@<Duplicate name: ~S.~@:>" name))
+  (setf (gethash name (context-%table context)) new-value))
+
+;; set / set target_list = expression_list
+
+(defrule t-set (and t-statement-start ws* "set" ws target-list ws* "=" ws* expression ws* t-statement-end)
+  (:lambda (s)
+    `(:set ,(fourth s) ,(seventh s))))
+
+;; set block / set identifier suite endset
+
+(defrule t-set-block (and t-set-block-start suite t-set-block-end)
+  (:lambda (s)
+    `(:block-set ,(first s) ,(second s))))
+
+(defrule t-set-block-start (and t-statement-start ws* "set" ws* identifier ws* t-statement-end)
+  (:function fifth))
+
+(defrule t-set-block-end (and t-statement-start ws* "endset" ws* t-statement-end)
+  (:constant nil))
+
+;; open scope
+;; (let ((*context* (make-context *context*)))
+;;  ...
+
+
 
 ;;; t-expression
 

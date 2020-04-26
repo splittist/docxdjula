@@ -9,8 +9,10 @@
   :depends-on (#:djula #:docxplora
 		       #:cl-ppcre #:cl-interpol
 		       #:uiop #:alexandria #:split-sequence
-		       #:lquery)
+		       #:lquery
+		       #:esrap) ; for gingish
   :components ((:file "package")
 	       (:file "regex")
+	       (:file "ginjish")
 	       (:file "docxdjula")
 	       (:file "questionnaire")))
