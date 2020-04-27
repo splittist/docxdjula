@@ -213,13 +213,33 @@
 		:in))
 	(alexandria:make-keyword c))))
 
+(defun in (item collection)
+  (etypecase collection
+    (sequence (position item collection :test #'equal)) ; FIXME alist, plist
+    (hash-table (nth-value 1 (gethash collection item)))))
+
+(defun not-in (item collection)
+  (not (in item collection)))
+
+(defun c-op->lisp (op)
+  (serapeum:string-case op
+    (">=" 'cl:>=)
+    ("<=" 'cl:<=)
+    ("!=" 'cl:/=)
+    ("<"  'cl:<)
+    (">"  'cl:>)
+    ("==" 'cl:=)
+    ("in" 'in)
+    ("not-in" 'not-in)
+    (t (error "c-op->lisp got: ~S" op))))
+
 (defrule comp-operator (or ">=" "<=" "!=" "<" ">" "=="
 			   not-in)
-  (:function alexandria:make-keyword))
+  (:function c-op->lisp))
 
 (defrule not-in (and (? (and "not" ws)) "in")
   (:lambda (n)
-    (if (first n) :not-in :in)))
+    (if (first n) "not-in" "in")))
 
 #|
 (defrule or-expr (or or-expr-sub xor-expr))
@@ -252,15 +272,23 @@
 (defrule a-expr-sub (or (and a-expr ws* "+" ws* #+(or)m-expr concat-expr)
 			(and a-expr ws* "-" ws* #+(or)m-expr concat-expr))
   (:lambda (a)
-    (list (alexandria:make-keyword (third a)) (first a) (fifth a))))
+    (list (find-symbol (third a) :cl) (first a) (fifth a))))
 
 (defrule concat-expr (or concat-expr-sub m-expr))
 
 (defrule concat-expr-sub (and concat-expr (+ (and (and ws* "~" ws*) m-expr)))
   (:lambda (c)
-    `(:string-concat ,(first c) ,@(mapcar #'second (second c)))))
+    `(cl:concatenate 'string ,(first c) ,@(mapcar #'second (second c)))))
 
 (defrule m-expr (or m-expr-sub u-expr))
+
+(defun m-op->lisp (op)
+  (serapeum:string-case op
+    ("*" 'cl:*)
+    ("//" 'cl:floor)
+    ("/" 'cl:/)
+    ("%" 'cl:mod) ; FIXME also printf-style string formatting
+    (t (error "m-op->lisp got: ~S" op))))
 
 (defrule m-expr-sub (or (and m-expr ws* "*" ws* u-expr)
 			#+(or)(and m-expr ws* "@" ws* u-expr)
@@ -268,7 +296,7 @@
 			(and m-expr ws* "/" ws* u-expr)
 			(and m-expr ws* "%" ws* u-expr))
   (:lambda (m)
-    (list (alexandria:make-keyword (third m)) (first m) (fifth m))))
+    (list (m-op->lisp (third m)) (first m) (fifth m))))
 
 ;; Jinja seems to have u-expr and power reversed
 
@@ -278,13 +306,13 @@
 			(and "+" ws* u-expr)
 			#+(or)(and "~" ws* u-expr)) ;; Jinja "~" is binary string concat
   (:lambda (u)
-    (list (alexandria:make-keyword (first u)) (third u))))
+    (list (find-symbol (first u) :cl) (third u))))
 
 (defrule power (and filtered-primary (? (and ws* "**" ws* u-expr)))
   (:lambda (p)
     (if (null (second p))
 	(first p)
-	(list :** (first p) (fourth (second p))))))
+	(list 'cl:expt (first p) (fourth (second p))))))
 
 (defrule filtered-primary (and primary (? filter-expr))
   (:lambda (f)
@@ -327,15 +355,15 @@
 
 (defrule list-display (and "[" ws* (? expression-list*) ws* "]")
   (:lambda (l)
-    `(:list ,@(third l))))
+    `(cl:list ,@(third l))))
 
 (defrule set-display (and "{" ws* expression-list* ws* "}")
   (:lambda (s)
-    `(:set ,@(third s))))
+    `(cl:list ,@(third s)))) ; FIXME a real set?
 
 (defrule dict-display (and "{" ws* (? key-datum-list) ws* "}")
   (:lambda (d)
-    `(:dict ,@(third d))))
+    `(alexandria:alist-hash-table ,@(third d))))
 
 (defrule key-datum-list (and key-datum (* (and ws* "," ws* key-datum)) (? (and ws* ",")))
   (:lambda (k)
@@ -343,7 +371,7 @@
 
 (defrule key-datum (and expression ws* ":" ws* expression)
   (:lambda (k)
-    (cons (first k) (fifth k))))
+    (list (first k) (fifth k))))
 
 
 ;;; primary
@@ -360,7 +388,7 @@
 
 (defrule call (and primary "(" ws* (? mixed-argument-list) ws* ")") ; FIXME lispy lambda list
   (:lambda (c)
-    (list :call (first c) (fourth c))))
+    (list 'cl:funcall (first c) (fourth c))))
 
 (defrule mixed-argument-list (and mixed-argument (* (and (and ws* "," ws*) mixed-argument)) (? (and ws* ",")))
   (:lambda (m)
@@ -389,9 +417,14 @@
 
 |#
 
+(defun read-keyword (string)
+  (serapeum:with-standard-input-syntax
+    (let ((*package* (find-package :keyword)))
+      (read-from-string string))))
+
 (defrule keyword-item (and identifier ws* "=" ws* expression)
   (:lambda (k)
-    (cons (first k) (fifth k))))
+    (list (read-keyword (second (first k))) (fifth k))))
   
 (defrule slicing (and primary "[" ws* slice-list ws* "]")
   (:lambda (s)
@@ -428,11 +461,14 @@
 
 (defrule matter (+ (not (or t-statement-start t-expression-start t-comment-start)))
   (:lambda (m)
-    (list :matter (text m))))
+    (let ((text (text m)))
+      (lambda (stream) (princ text stream)))))
 
 (defrule suite (* (or t-statement t-expression t-comment matter))
   (:lambda (s)
-    `(:suite ,s)))
+    (lambda (stream)
+      (dolist (item s)
+	(when item (funcall item stream))))))
 
 ;;; t-comment
 
@@ -447,7 +483,7 @@
 
 (defrule t-raw (and t-raw-start raw-content t-raw-end)
   (:lambda (r)
-    (list :raw (second r))))
+    (lambda (stream) (princ (second r) stream))))
 
 (defrule raw-content (* (not t-raw-end))
   (:text t))
@@ -522,9 +558,16 @@ if_stmt ::=  "if" assignment_expression ":" suite
 (defrule t-if (and t-if-start suite (* (and t-if-elif suite)) (? (and t-if-else suite)) t-if-end)
   (:destructure (test then &optional elifs else &rest end)
     (declare (ignore end))
-    `(:cond (,test ,then)
-	    ,@(mapcar (lambda (elif) (list (car elif) (cadr elif))) elifs)
-	    (t ,(second else)))))
+    (lambda (stream)
+      (funcall
+       (cond (test then)
+	     (t
+	      (dolist (elif elifs)
+		(when (car elif)
+		  (cadr elif)
+		  (return)))
+	      (second else)))
+       stream))))
 
 (defrule t-if-start (and (and t-statement-start ws* "if" ws) expression (and ws* t-statement-end))
   (:function second))
@@ -611,6 +654,7 @@ if_stmt ::=  "if" assignment_expression ":" suite
 
 (defrule t-expression (and t-expression-start ws* expression ws* t-expression-end)
   (:lambda (e)
-    (list :t-expression (third e))))
+    (lambda (stream)
+      (princ (third e) stream)))) ; FIXME escaping
 
 ;;; 
