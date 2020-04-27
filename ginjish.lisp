@@ -143,15 +143,14 @@
 
 (defrule id-cont (alphanumeric_ character))
 
-(defrule identifier (and id-start (* id-cont))
+(defrule identifier (and id-start (* id-cont)) ; FIXME load and store identifiers?
   (:lambda (i)
     (let ((s (text i)))
       (serapeum:string-case s
 	(("true" "True") t)
 	(("false" "False") nil)
 	(("none" "None") nil)
-	(t s)))))
-	
+	(t `(:id ,s))))))
 
 ;;; literals
 
@@ -165,43 +164,43 @@
 				     (? (and ws "if" ws or-test ws "else" ws expression)))
   (:lambda (c)
 	   (if (second c)
-	       (list :if-else (fourth (second c)) (first c) (eighth (second c)))
+	       `(cl:if ,(fourth (second c)) ,(first c) ,(eighth (second c)))
 	       (first c))))
 
 (defrule or-test (or or-test-sub and-test))
 
 (defrule or-test-sub (and or-test ws "or" ws and-test)
   (:lambda (o)
-    (list :or (first o) (fifth o))))
+    `(cl:or ,(first o) ,(fifth o))))
 
 (defrule and-test (or and-test-sub not-test))
 
 (defrule and-test-sub (and and-test ws "and" ws not-test)
   (:lambda (a)
-    (list :and (first a) (fifth a))))
+    `(cl:and ,(first a) ,(fifth a))))
 
 (defrule not-test (or not-test-sub comparison))
 
 (defrule not-test-sub (and "not" ws not-test)
   (:lambda (n)
-    (list :not (third n))))
+    `(cl:not ,(third n))))
 
 (defun chain-comparisons (c)
-  `(:and
+  `(cl:and
     ,@(loop for left = (first c) then right
 	 for (nil op nil right) in (second c)
 	 collecting (list op left right))))
 
-(defrule comparison (and or-expr
-			 (* (and ws* comp-operator ws* or-expr)))
+(defrule comparison (and #+(or)or-expr a-expr
+			 (* (and ws* comp-operator ws* #+(or)or-expr a-expr)))
   (:lambda (c)
     (case (length (second c))
       (0 (first c))
       (1 (list (second (first (second c))) (first c) (fourth (first (second c)))))
       (t (chain-comparisons c)))))
 
-(defrule comp-operator (or ">=" "<=" "!=" "<" ">" "=="
-			   (and "is" (? (and ws "not"))) ; Jinja "is" is test
+#+(or)(defrule comp-operator (or ">=" "<=" "!=" "<" ">" "=="
+			   (and "is" (? (and ws "not")))
 			   (and (? (and "not" ws)) "in"))
   (:lambda (c)
     (if (consp c)
@@ -214,8 +213,15 @@
 		:in))
 	(alexandria:make-keyword c))))
 
-;; no bitwise operations in Jinja
+(defrule comp-operator (or ">=" "<=" "!=" "<" ">" "=="
+			   not-in)
+  (:function alexandria:make-keyword))
 
+(defrule not-in (and (? (and "not" ws)) "in")
+  (:lambda (n)
+    (if (first n) :not-in :in)))
+
+#|
 (defrule or-expr (or or-expr-sub xor-expr))
 
 (defrule or-expr-sub (and or-expr ws* "|" ws* xor-expr) ; Jinja "|" is filter
@@ -239,23 +245,32 @@
 (defrule shift-expr-sub (and shift-expr ws* (or "<<" ">>") ws* a-expr)
   (:lambda (s)
     (list (alexandria:make-keyword (third s)) (first s) (fifth s))))
+|#
 
-(defrule a-expr (or a-expr-sub m-expr))
+(defrule a-expr (or a-expr-sub #+(or)m-expr concat-expr))
 
-(defrule a-expr-sub (or (and a-expr ws* "+" ws* m-expr)
-			(and a-expr ws* "-" ws* m-expr))
+(defrule a-expr-sub (or (and a-expr ws* "+" ws* #+(or)m-expr concat-expr)
+			(and a-expr ws* "-" ws* #+(or)m-expr concat-expr))
   (:lambda (a)
     (list (alexandria:make-keyword (third a)) (first a) (fifth a))))
+
+(defrule concat-expr (or concat-expr-sub m-expr))
+
+(defrule concat-expr-sub (and concat-expr (+ (and (and ws* "~" ws*) m-expr)))
+  (:lambda (c)
+    `(:string-concat ,(first c) ,@(mapcar #'second (second c)))))
 
 (defrule m-expr (or m-expr-sub u-expr))
 
 (defrule m-expr-sub (or (and m-expr ws* "*" ws* u-expr)
-			#+(or)(and m-expr ws* "@" ws* u-expr) ; matrix mult not implemented in Python
+			#+(or)(and m-expr ws* "@" ws* u-expr)
 			(and m-expr ws* "//" ws* u-expr)
 			(and m-expr ws* "/" ws* u-expr)
 			(and m-expr ws* "%" ws* u-expr))
   (:lambda (m)
     (list (alexandria:make-keyword (third m)) (first m) (fifth m))))
+
+;; Jinja seems to have u-expr and power reversed
 
 (defrule u-expr (or u-expr-sub power))
 
@@ -265,11 +280,28 @@
   (:lambda (u)
     (list (alexandria:make-keyword (first u)) (third u))))
 
-(defrule power (and primary (? (and ws* "**" ws* u-expr)))
+(defrule power (and filtered-primary (? (and ws* "**" ws* u-expr)))
   (:lambda (p)
     (if (null (second p))
 	(first p)
 	(list :** (first p) (fourth (second p))))))
+
+(defrule filtered-primary (and primary (? filter-expr))
+  (:lambda (f)
+	   (if (second f)
+	       `(,(first (second f)) primary ,@(rest (second f)))
+	       (first f))))
+
+(defrule filter-expr (or test-expr filters))
+
+(defrule filters (* (and (and ws* "|" ws*) primary))
+  (:lambda (f)
+	   (when f
+	     `(:filter ,@(mapcar #'second f)))))
+
+(defrule test-expr (and (and ws* "is") (? (and ws "not")) ws primary)
+  (:lambda (e)
+    `(,(if (second (second e)) :test-not :test) ,(fourth e))))
 
 ;;; atom
 
@@ -326,10 +358,17 @@
   (:lambda (s)
     (list :get-item (first s) (fourth s))))
 
-(defrule call (and primary "(" ws* (? expression-list*) ws* ")") ; FIXME lispy lambda list
+(defrule call (and primary "(" ws* (? mixed-argument-list) ws* ")") ; FIXME lispy lambda list
   (:lambda (c)
     (list :call (first c) (fourth c))))
 
+(defrule mixed-argument-list (and mixed-argument (* (and (and ws* "," ws*) mixed-argument)) (? (and ws* ",")))
+  (:lambda (m)
+    `(,(first m) ,@(mapcar #'second (second m)))))
+
+(defrule mixed-argument (or keyword-item positional-item))
+
+#|
 (defrule argument-list (or keywords-arguments ; FIXME this doesn't seem to work
 			   (and positional-arguments (? (and ws* "," keywords-arguments))))
   )
@@ -339,17 +378,21 @@
 (defrule positional-arguments (and positional-item (* (and ws* "," ws* positional-item)))
   (:lambda (p)
     `(,(first p) ,@(mapcar #'fourth (second p)))))
-
+    |#
+    
 (defrule positional-item expression)
 
+#|
 (defrule keywords-arguments (and keyword-item (* (and ws* "," ws* keyword-item)))
   (:lambda (k)
     `(,(first k) ,@(mapcar #'fourth (second k)))))
 
+|#
+
 (defrule keyword-item (and identifier ws* "=" ws* expression)
   (:lambda (k)
     (cons (first k) (fifth k))))
-
+  
 (defrule slicing (and primary "[" ws* slice-list ws* "]")
   (:lambda (s)
     (list :slicing (first s) (fourth s))))
@@ -432,9 +475,10 @@ target      ::= identifier
 (defrule t-for (and t-for-start suite (? (and t-for-else suite)) t-for-end)
   (:destructure ((target-list expression-list) suite &optional else-part &rest end)
     (declare (ignore end))
-    `(:if (null ,expression-list)
-	  ,(second else-part)
-	  (:for ,target-list ,expression-list ,suite))))
+    (let ((loop `(:for ,target-list ,expression-list ,suite)))
+      (alexandria:if-let ((else (second else-part)))
+	`(:if (null ,expression-list) ,else ,loop)
+	loop))))
 
 (defrule t-for-start (and (and t-statement-start ws* "for" ws) target-list (and ws "in" ws) expression-list (and ws* t-statement-end))
   (:destructure (for-keyword target-list in-keyword expression-list &rest end)
@@ -545,13 +589,13 @@ if_stmt ::=  "if" assignment_expression ":" suite
   (:lambda (s)
     `(:set ,(fourth s) ,(seventh s))))
 
-;; set block / set identifier suite endset
+;; set block / set target suite endset
 
 (defrule t-set-block (and t-set-block-start suite t-set-block-end)
   (:lambda (s)
     `(:block-set ,(first s) ,(second s))))
 
-(defrule t-set-block-start (and t-statement-start ws* "set" ws* identifier ws* t-statement-end)
+(defrule t-set-block-start (and t-statement-start ws* "set" ws* target ws* t-statement-end)
   (:function fifth))
 
 (defrule t-set-block-end (and t-statement-start ws* "endset" ws* t-statement-end)
@@ -565,8 +609,8 @@ if_stmt ::=  "if" assignment_expression ":" suite
 
 ;;; t-expression
 
-;; NB pipe syntax is or-expr
-
 (defrule t-expression (and t-expression-start ws* expression ws* t-expression-end)
   (:lambda (e)
     (list :t-expression (third e))))
+
+;;; 
