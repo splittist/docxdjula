@@ -201,7 +201,7 @@
       (t (chain-comparisons c)))))
 
 (defrule comp-operator (or ">=" "<=" "!=" "<" ">" "=="
-			   (and "is" (? (and ws "not")))
+			   (and "is" (? (and ws "not"))) ; Jinja "is" is test
 			   (and (? (and "not" ws)) "in"))
   (:lambda (c)
     (if (consp c)
@@ -214,9 +214,11 @@
 		:in))
 	(alexandria:make-keyword c))))
 
+;; no bitwise operations in Jinja
+
 (defrule or-expr (or or-expr-sub xor-expr))
 
-(defrule or-expr-sub (and or-expr ws* "|" ws* xor-expr)
+(defrule or-expr-sub (and or-expr ws* "|" ws* xor-expr) ; Jinja "|" is filter
   (:lambda (o)
     (list :\| (first o) (fifth o))))
 
@@ -248,7 +250,7 @@
 (defrule m-expr (or m-expr-sub u-expr))
 
 (defrule m-expr-sub (or (and m-expr ws* "*" ws* u-expr)
-			(and m-expr ws* "@" ws* u-expr)
+			#+(or)(and m-expr ws* "@" ws* u-expr) ; matrix mult not implemented in Python
 			(and m-expr ws* "//" ws* u-expr)
 			(and m-expr ws* "/" ws* u-expr)
 			(and m-expr ws* "%" ws* u-expr))
@@ -259,7 +261,7 @@
 
 (defrule u-expr-sub (or (and "-" ws* u-expr)
 			(and "+" ws* u-expr)
-			(and "~" ws* u-expr))
+			#+(or)(and "~" ws* u-expr)) ;; Jinja "~" is binary string concat
   (:lambda (u)
     (list (alexandria:make-keyword (first u)) (third u))))
 
