@@ -72,7 +72,7 @@
 		       (maphash
 			#'(lambda (name function)
 			    (let ((result (with-output-to-string (s) (funcall function s)))
-				  (part (get-part-by-name document name t)))
+				  (part (get-part-by-name document name :xml t)))
 			      (setf (opc:xml-root part) (plump:parse result))))
 			tpf)
 		       (opc:save-package package destination)))
