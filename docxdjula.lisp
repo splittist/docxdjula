@@ -200,5 +200,3 @@
 	((t &rest rest)
 	 (push rest others))))
     (values (sort variables (function string-lessp)) ifs fors others)))
-
-
