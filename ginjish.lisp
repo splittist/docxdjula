@@ -7,6 +7,8 @@
 
 (cl:in-package #:ginjish-grammar)
 
+(defvar *debug* nil)
+
 ;;; whitespace
 
 (defrule ws (+ (or #\Space #\Tab #\Page))
@@ -131,6 +133,30 @@
 1e100 -> floating point overflow
 |#
 
+;; context
+
+(defvar *context*)
+
+(defstruct (context
+	     (:constructor make-context (&optional %parent)))
+  (%table (make-hash-table :test #'equal))
+  %parent)
+
+(defun lookup/direct (name &optional (context *context*))
+  (values (gethash name (context-%table context))))
+
+(defun lookup (name &optional (context *context*))
+  (or (lookup/direct name context)
+      (alexandria:when-let ((parent (context-%parent context)))
+	(lookup name parent))))
+
+(defun (setf lookup) (new-value name &optional (context *context*))
+  (setf (gethash name (context-%table context)) new-value))
+
+(defun set-context (context &rest elements)
+  (loop for (key value) on elements by #'cddr
+       do (setf (lookup key context) value)))
+
 ;;; identifiers
 
 (defun alpha_ (char)
@@ -143,6 +169,9 @@
 
 (defrule id-cont (alphanumeric_ character))
 
+(defrule name (and id-start (* id-cont))
+  (:text t))
+
 (defrule identifier (and id-start (* id-cont)) ; FIXME load and store identifiers?
   (:lambda (i)
     (let ((s (text i)))
@@ -150,7 +179,7 @@
 	(("true" "True") t)
 	(("false" "False") nil)
 	(("none" "None") nil)
-	(t `(:id ,s))))))
+	(t `(lookup ,s))))))
 
 ;;; literals
 
@@ -221,14 +250,17 @@
 (defun not-in (item collection)
   (not (in item collection)))
 
+(defun not-equal (a b)
+  (not (equal a b)))
+
 (defun c-op->lisp (op)
   (serapeum:string-case op
     (">=" 'cl:>=)
     ("<=" 'cl:<=)
-    ("!=" 'cl:/=)
+    ("!=" 'not-equal)
     ("<"  'cl:<)
     (">"  'cl:>)
-    ("==" 'cl:=)
+    ("==" 'cl:equal)
     ("in" 'in)
     ("not-in" 'not-in)
     (t (error "c-op->lisp got: ~S" op))))
@@ -422,7 +454,7 @@
     (let ((*package* (find-package :keyword)))
       (read-from-string string))))
 
-(defrule keyword-item (and identifier ws* "=" ws* expression)
+(defrule keyword-item (and name  ws* "=" ws* expression)
   (:lambda (k)
     (list (read-keyword (second (first k))) (fifth k))))
   
@@ -461,14 +493,17 @@
 
 (defrule matter (+ (not (or t-statement-start t-expression-start t-comment-start)))
   (:lambda (m)
-    (let ((text (text m)))
-      (lambda (stream) (princ text stream)))))
+    (let ((form
+	   `(lambda (stream) (princ ,(text m) stream))))
+      (if *debug* form (coerce form 'function)))))
 
 (defrule suite (* (or t-statement t-expression t-comment matter))
   (:lambda (s)
-    (lambda (stream)
-      (dolist (item s)
-	(when item (funcall item stream))))))
+    (let ((form
+	   `(lambda (stream)
+	      (dolist (item ',s)
+		(when item (funcall item stream))))))
+      (if *debug* form (coerce form 'function)))))
 
 ;;; t-comment
 
@@ -483,7 +518,9 @@
 
 (defrule t-raw (and t-raw-start raw-content t-raw-end)
   (:lambda (r)
-    (lambda (stream) (princ (second r) stream))))
+    (let ((form
+	   `(lambda (stream) (princ ,(second r) stream))))
+      (if *debug* form (coerce form 'function)))))
 
 (defrule raw-content (* (not t-raw-end))
   (:text t))
@@ -533,20 +570,18 @@ target      ::= identifier
 
 (defrule target (or tuple-target
 		    list-target
-		    attributeref
-		    subscription
-		    slicing
+		    #+(or)attributeref
+		    #+(or)subscription
+		    #+(or)slicing
 		    identifier))
 
 (defrule tuple-target (and "(" ws* (? target-list) ws* ")")
   (:lambda (e)
-    (if (> 1 (length (third e)))
-	`(:tuple ,(third e))
-	(third e))))
+    (third e)))
 
 (defrule list-target (and "[" ws* (? target-list) ws* "]")
   (:lambda (l)
-    `(:list ,(third l))))
+    (third l)))
 
 ;; if
 #|
@@ -558,16 +593,14 @@ if_stmt ::=  "if" assignment_expression ":" suite
 (defrule t-if (and t-if-start suite (* (and t-if-elif suite)) (? (and t-if-else suite)) t-if-end)
   (:destructure (test then &optional elifs else &rest end)
     (declare (ignore end))
-    (lambda (stream)
-      (funcall
-       (cond (test then)
-	     (t
-	      (dolist (elif elifs)
-		(when (car elif)
-		  (cadr elif)
-		  (return)))
-	      (second else)))
-       stream))))
+    (let ((form
+	   `(lambda (stream)
+	      (funcall
+	       (cond (,test ,then)
+		     ,@(mapcar (lambda (elif) (list (first elif) (second elif))) elifs)
+		     (t ,(second else)))
+	       stream))))
+      (if *debug* form (coerce form 'function)))))
 
 (defrule t-if-start (and (and t-statement-start ws* "if" ws) expression (and ws* t-statement-end))
   (:function second))
@@ -596,7 +629,7 @@ if_stmt ::=  "if" assignment_expression ":" suite
 (defrule t-autoescape (and t-autoescape-start suite t-autoescape-end)
   (:destructure (start suite end)
     (declare (ignore end))
-    `(:let ((*autoescape* ,start)) ,suite)))
+    `(cl:let ((*autoescape* ,start)) ,suite)))
 		 
 (defrule t-autoescape-start (and t-statement-start ws* "autoescape" ws identifier ws* t-statement-end)
   (:function fifth))
@@ -604,33 +637,21 @@ if_stmt ::=  "if" assignment_expression ":" suite
 (defrule t-autoescape-end (and t-statement-start ws* "endautoescape" ws* t-statement-end)
   (:constant nil))
 
-;; context
-
-(defvar *context*)
-
-(defstruct (context
-	     (:constructor make-context (&optional %parent)))
-  (%table (make-hash-table :test #'equal))
-  %parent)
-
-(defun lookup/direct (name &optional (context *context*))
-  (values (gethash name (context-%table context))))
-
-(defun lookup (name &optional (context *context*))
-  (or (lookup/direct name context)
-      (alexandria:when-let ((parent (context-%parent context)))
-	(lookup name parent))))
-
-(defun (setf lookup) (new-value name &optional (context *context*))
-  (when (lookup/direct name context)
-    (error "~@<Duplicate name: ~S.~@:>" name))
-  (setf (gethash name (context-%table context)) new-value))
-
 ;; set / set target_list = expression_list
+
+(defun assign (target-list expression-list)
+  (unless (consp expression-list) (setf expression-list (list expression-list)))
+  (assert (= (length expression-list)(length target-list))) ; FIXME
+  (dotimes (i (length target-list))
+    (setf (elt target-list i) (elt expression-list i))))
 
 (defrule t-set (and t-statement-start ws* "set" ws target-list ws* "=" ws* expression ws* t-statement-end)
   (:lambda (s)
-    `(:set ,(fourth s) ,(seventh s))))
+    (let ((form
+	   `(lambda (stream)
+	      (declare (ignore stream))
+	      (assign ,(fifth s) ,(ninth s)))))
+      (if *debug* form (coerce form 'function)))))
 
 ;; set block / set target suite endset
 
@@ -654,7 +675,41 @@ if_stmt ::=  "if" assignment_expression ":" suite
 
 (defrule t-expression (and t-expression-start ws* expression ws* t-expression-end)
   (:lambda (e)
-    (lambda (stream)
-      (princ (third e) stream)))) ; FIXME escaping
+    (let ((form
+	  `(lambda (stream)
+	     (princ ,(third e) stream)))) ; FIXME escaping
+      (if *debug* form (coerce form 'function)))))
 
-;;; 
+;;; compilation and rendering
+
+(defrule template suite
+  (:lambda (s)
+    (let ((form
+	   `(lambda (stream)
+	      (let ((*context* (make-context *context*)))
+		(funcall ,s stream)))))
+      (if *debug* form (compile nil form)))))
+
+(defclass template ()
+  ())
+
+(defclass compiled-template ()
+  ((%template-function :initarg :template-function :accessor template-function))
+  (:metaclass closer-mop:funcallable-standard-class))
+
+(defmethod initialize-instance :after ((compiled-template compiled-template) &rest initargs)
+  (declare (ignore initargs))
+  (closer-mop:set-funcallable-instance-function
+   compiled-template
+   (template-function compiled-template)))
+
+(defgeneric compile-template (template &key &allow-other-keys)
+  (:method ((string string) &key &allow-other-keys)
+    (let ((*autoescape* *autoescape*))
+      (let ((function (parse 'template string)))
+	(make-instance 'compiled-template :template-function function)))))
+
+(defgeneric render-template (template stream context &key &allow-other-keys)
+  (:method ((template compiled-template) stream (context context) &key &allow-other-keys)
+    (let ((*context* context))
+      (funcall template stream))))
