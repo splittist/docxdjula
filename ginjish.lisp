@@ -7,8 +7,6 @@
 
 (cl:in-package #:ginjish-grammar)
 
-(defvar *debug* nil)
-
 ;;; whitespace
 
 (defrule ws (+ (or #\Space #\Tab #\Page))
@@ -310,7 +308,7 @@
 			(and "+" ws* u-expr)
 			#+(or)(and "~" ws* u-expr)) ;; Jinja "~" is binary string concat
   (:lambda (u)
-    (list (serapeum:string-case (third a) (("+") :plus) (("-") :minus)) (third u))))
+    (list (serapeum:string-case (third u) (("+") :uplus) (("-") :uminus)) (third u))))
 
 (defrule power (and filtered-primary (? (and ws* "**" ws* u-expr)))
   (:lambda (p)
@@ -613,72 +611,9 @@ if_stmt ::=  "if" assignment_expression ":" suite
 (defrule t-set-block-end (and t-statement-start ws* "endset" ws* t-statement-end)
   (:constant nil))
 
-;; open scope
-;; (let ((*context* (make-context *context*)))
-;;  ...
-
-
-
 ;;; t-expression
 
 (defrule t-expression (and t-expression-start ws* expression ws* t-expression-end)
   (:lambda (e)
     `(:expression ,(third e))))
 
-;; context
-
-(defvar *context*)
-
-(defstruct (context
-	     (:constructor make-context (&optional %parent)))
-  (%table (make-hash-table :test #'equal))
-  %parent)
-
-(defun lookup/direct (name &optional (context *context*))
-  (values (gethash name (context-%table context))))
-
-(defun lookup (name &optional (context *context*))
-  (or (lookup/direct name context)
-      (alexandria:when-let ((parent (context-%parent context)))
-	(lookup name parent))))
-
-(defun (setf lookup) (new-value name &optional (context *context*))
-  (setf (gethash name (context-%table context)) new-value))
-
-(defun set-context (context &rest elements)
-  (loop for (key value) on elements by #'cddr
-       do (setf (lookup key context) value)))
-
-;;; compilation and rendering
-
-(defrule template suite
-  (:lambda (s)
-    (let ((form
-	   `(lambda (stream)
-	      (let ((*context* (make-context *context*)))
-		(funcall ,s stream)))))
-      (if *debug* form (compile nil form)))))
-
-(defclass template ()
-  ())
-
-(defclass compiled-template ()
-  ((%template-function :initarg :template-function :accessor template-function))
-  (:metaclass closer-mop:funcallable-standard-class))
-
-(defmethod initialize-instance :after ((compiled-template compiled-template) &rest initargs)
-  (declare (ignore initargs))
-  (closer-mop:set-funcallable-instance-function
-   compiled-template
-   (template-function compiled-template)))
-
-(defgeneric compile-template (template &key &allow-other-keys)
-  (:method ((string string) &key &allow-other-keys)
-    (let ((*autoescape* *autoescape*))
-      (let ((function (parse 'template string)))
-	(make-instance 'compiled-template :template-function function)))))
-
-(defgeneric render-template (template stream context &key &allow-other-keys)
-  (:method ((template compiled-template) stream (context context) &key &allow-other-keys)
-    (let ((*context* context))
-      (funcall template stream))))

@@ -5,6 +5,8 @@
 
 (cl:in-package #:ginjish-tests)
 
+;;; parser
+
 (define-test parser)
 
 (define-test stringliteral
@@ -173,3 +175,48 @@
   (is equal
       '(:test-not (:identifier "foo") (:identifier "zero"))
       (esrap:parse 'ginjish-grammar::expression "foo is not zero")))
+
+;;; compiler
+
+(define-test compiler)
+
+(defclass load-value-example ()
+  ((a :initarg :a)
+   (b :initarg :b)))
+
+(define-test load-value
+  :parent compiler
+  (is equal
+      1
+      (ginjish-compiler::load-value '(1 3 3) 0))
+  (is equal
+      #\f
+      (ginjish-compiler::load-value "foo" 0))
+  (is equal
+      1
+      (ginjish-compiler::load-value '(a 1 b 2) 'a))
+  (is equal
+      1
+      (ginjish-compiler::load-value '((a . 1) (b . 2)) 'a))
+  (is equal
+      1
+      (ginjish-compiler::load-value (serapeum:dict "a" 1 "b" 2) "a"))
+  (is equal
+      1
+      (ginjish-compiler::load-value (make-instance 'load-value-example :a 1 :b 2) 'a)))
+
+(define-test truthy
+  :parent compiler
+  (false (ginjish-compiler::truthy nil))
+  (true (ginjish-compiler::truthy t))
+  (false (ginjish-compiler::truthy 0))
+  (true (ginjish-compiler::truthy 1))
+  (false (ginjish-compiler::truthy 0.0))
+  (true (ginjish-compiler::truthy 1.0))
+  (false (ginjish-compiler::truthy ""))
+  (true (ginjish-compiler::truthy "a"))
+  (false (ginjish-compiler::truthy #()))
+  (true (ginjish-compiler::truthy #(1)))
+  (false (ginjish-compiler::truthy (make-hash-table)))
+  (true (ginjish-compiler::truthy (serapeum:dictq a 1))))
+      
