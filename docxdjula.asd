@@ -16,3 +16,7 @@
 	       (:file "ginjish")
 	       (:file "docxdjula")
 	       (:file "questionnaire")))
+
+(asdf:defsystem #:ginjish-tests
+  :depends-on (#:docxdjula #:parachute)
+  :components ((:file "ginjish-tests")))
