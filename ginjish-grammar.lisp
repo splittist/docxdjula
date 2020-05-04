@@ -212,17 +212,6 @@
 		:in))
 	(alexandria:make-keyword c))))
 
-(defun in (item collection)
-  (etypecase collection
-    (sequence (position item collection :test #'equal)) ; FIXME alist, plist
-    (hash-table (nth-value 1 (gethash collection item)))))
-
-(defun not-in (item collection)
-  (not (in item collection)))
-
-(defun not-equal (a b)
-  (not (equal a b)))
-
 (defun c-op->lisp (op)
   (serapeum:string-case op
     (">=" :gte)

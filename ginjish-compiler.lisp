@@ -34,9 +34,9 @@
   (make-instance 'context :parent parent :map map))
 
 (defmethod load-value ((map context) key)
-  (with-slots (map parent) map
-    (or (load-value map key)
-	(and parent (load-value parent key)))))
+  (with-slots (%map %parent) map
+    (or (load-value %map key)
+	(and %parent (load-value %parent key)))))
 
 (defgeneric truthy (thing)
   (:method ((thing (eql 0)))
@@ -130,24 +130,230 @@
   (:method ((left number) (right number))
     (>= left right))
   (:method ((left list) (right list))
-    (loop for l on left
-       for r on right
-       while (equal (car l) (car r))
-	 do (format t "~A ~A~%" l r)
-       finally
-	 (return
-	   (cond ((and l (null r))
-		  t)
-		 ((and r (null l))
-		  nil)
-		 ((and (null l) (null r))
-		  t)
-		 (t
-		  (gte (car l) (car r))))))))
+    (let ((leftlen (length left))
+	  (rightlen (length right))
+	  (mismatch (mismatch left right)))
+      (cond
+	((null mismatch) ; same
+	 t)
+	((>= mismatch leftlen) ; right longer
+	 nil)
+	((>= mismatch rightlen) ; left longer
+	 t)
+	(t
+	 (gte (elt left mismatch) (elt right mismatch)))))))
 
-  
+(defmacro define-comparison-compiler (tag func)
+  `(defmethod compile-tagged-element ((tag (eql ,tag)) rest)
+     (let ((left (compile-element (first rest)))
+	   (right (compile-element (second rest))))
+       (alexandria:named-lambda ,tag (stream)
+	 (,func (funcall left stream)
+		(funcall right stream))))))
 
-(defmethod 
+(define-comparison-compiler :gte gte)
+
+(defgeneric lte (left right)
+  (:method ((left string) (right string))
+    (and (string<= left right) t))
+  (:method ((left number) (right number))
+    (<= left right))
+  (:method ((left list) (right list))
+    (let ((leftlen (length left))
+	  (rightlen (length right))
+	  (mismatch (mismatch left right)))
+      (cond
+	((null mismatch) ; same
+	 t)
+	((>= mismatch leftlen) ; right longer
+	 t)
+	((>= mismatch rightlen) ; left longer
+	 nil)
+	(t
+	 (lte (elt left mismatch) (elt right mismatch)))))))
+
+(define-comparison-compiler :lte lte)
+
+(defgeneric lt (left right)
+  (:method ((left string) (right string))
+    (and (string< left right) t))
+  (:method ((left number) (right number))
+    (< left right))
+  (:method ((left list) (right list))
+    (let ((leftlen (length left))
+	  (rightlen (length right))
+	  (mismatch (mismatch left right)))
+      (cond
+	((null mismatch) ; same
+	 nil)
+	((>= mismatch leftlen) ; right longer
+	 t)
+	((>= mismatch rightlen) ; left longer
+	 nil)
+	(t
+	 (lt (elt left mismatch) (elt right mismatch)))))))
+
+(define-comparison-compiler :lt lt)
+
+(defgeneric gt (left right)
+  (:method ((left string) (right string))
+    (and (string> left right) t))
+  (:method ((left number) (right number))
+    (> left right))
+  (:method ((left list) (right list))
+    (let ((leftlen (length left))
+	  (rightlen (length right))
+	  (mismatch (mismatch left right)))
+      (cond
+	((null mismatch) ; same
+	 nil)
+	((>= mismatch leftlen) ; right longer
+	 nil)
+	((>= mismatch rightlen) ; left longer
+	 t)
+	(t
+	 (gt (elt left mismatch) (elt right mismatch)))))))
+
+(define-comparison-compiler :gt gt)
+
+(defgeneric pequal (left right)
+  (:method ((left string) (right string))
+    (and (string= left right) t))
+  (:method ((left number) (right number))
+    (= left right))
+  (:method ((left list) (right list))
+    (let ((leftlen (length left))
+	  (rightlen (length right))
+	  (mismatch (mismatch left right)))
+      (cond
+	((null mismatch) ; same
+	 t)
+	((>= mismatch leftlen) ; right longer
+	 nil)
+	((>= mismatch rightlen) ; left longer
+	 nil)
+	(t
+	 (pequal (elt left mismatch) (elt right mismatch))))))
+  (:method ((left hash-table) (right hash-table))
+    (let ((leftlist (alexandria:hash-table-plist left))
+	  (rightlist (alexandria:hash-table-plist right)))
+      (equal leftlist rightlist)))
+  (:method (left right)
+    nil))
+
+(define-comparison-compiler :equal pequal)
+
+(defun not-pequal (left right)
+  (not (pequal left right)))
+
+(define-comparison-compiler :not-equal not-pequal)
+
+(defgeneric in (item collection)
+  (:method (item (collection sequence))
+    (find item collection :test #'equal)) ; FIXME alist, plist?
+  (:method ((item string) (collection string))
+    (serapeum:string*= item collection))
+  (:method (item (collection hash-table))
+    (nth-value 1 (gethash collection item))))
+
+(define-comparison-compiler :in in)
+
+(defun not-in (item collection)
+  (not (in item collection)))
+
+(define-comparison-compiler :not-in not-in)
+
+(defgeneric plus (left right)
+  (:method ((left number) (right number))
+    (+ left right))
+  (:method ((left list) (right list))
+    (append left right))
+  (:method ((left string) (right string))
+    (concatenate 'string left right))) ; FIXME vectors?
+
+(defmacro define-binary-compiler (tag func)
+  `(defmethod compile-tagged-element ((tag (eql ,tag)) rest)
+     (let ((left (compile-element (first rest)))
+	   (right (compile-element (second rest))))
+       (alexandria:named-lambda ,tag (stream)
+	 (,func (funcall left stream)
+		(funcall right stream))))))
+
+(define-binary-compiler :plus plus)
+
+(defgeneric minus (left right)
+  (:method ((left number) (right number))
+    (- left right)))
+
+(define-binary-compiler :minus minus)
+
+(defgeneric pconcatenate (left right)
+  (:method (left right)
+    (concatenate 'string (princ-to-string left) (princ-to-string right))))
+
+(define-binary-compiler :concatenate pconcatenate)
+
+(defgeneric mul (left right)
+  (:method ((left number) (right number))
+    (* left right))
+  (:method ((left sequence) (right number))
+    (serapeum:repeat-sequence left right))
+  (:method ((left number) (right sequence))
+    (serapeum:repeat-sequence right left)))
+
+(define-binary-compiler :mul mul)
+
+(defun pfloor (left right)
+  (floor left right))
+
+(define-binary-compiler :floor pfloor)
+
+(defun div (left right)
+  (/ left right))
+
+(define-binary-compiler :div div)
+
+(defgeneric pmod (left right)
+  (:method ((left number) (right number))
+    (mod left right))
+  (:method ((left string) right)
+    (error "printf-style string formatting with '%' not implemented.")))
+
+(define-binary-compiler :mod pmod)
+
+(defmethod compile-tagged-element ((tag (eql :uplus)) rest)
+  (let ((expr (compile-element (first rest))))
+    expr))
+
+(defmethod compile-tagged-element ((tag (eql :uminus)) rest)
+  (let ((expr (compile-element (first rest))))
+    (alexandria:named-lambda :uminus (stream)
+      (- (funcall expr stream)))))
+
+(defmethod compile-tagged-element ((tag (eql :pow)) rest)
+  (let ((base (compile-element (first rest)))
+	(power (compile-element (second rest))))
+    (alexandria:named-lambda :pow (stream)
+      (expt (funcall base stream) (funcall power stream)))))
+
+;;; TODO :test :test-not and :filter
+
+(defmethod compile-tagged-element ((tag (eql :tuple)) rest) ; FIXME tuples are lists
+  (let ((elements (mapcar #'compile-element rest)))
+    (alexandria:named-lambda :tuple (stream)
+      (mapcar (alexandria:rcurry #'funcall stream) elements))))
+
+(defmethod compile-tagged-element ((tag (eql :list)) rest)
+  (let ((elements (mapcar #'compile-element rest)))
+    (alexandria:named-lambda :list (stream)
+      (mapcar (alexandria:rcurry #'funcall stream) elements))))
+
+(defmethod compile-tagged-element ((tag (eql :set)) rest) ; FIXME sets are lists
+  (let ((elements (mapcar #'compile-element rest)))
+    (alexandria:named-lambda :set (stream)
+      (mapcar (alexandria:rcurry #'funcall stream) elements))))
+
+;; :DICT
 
 #|
 (defvar *context*)

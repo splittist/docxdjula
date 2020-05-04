@@ -220,3 +220,17 @@
   (false (ginjish-compiler::truthy (make-hash-table)))
   (true (ginjish-compiler::truthy (serapeum:dictq a 1))))
       
+(define-test gte
+  :parent compiler
+  (true (ginjish-compiler::gte 1 0))
+  (false (ginjish-compiler::gte 0 1))
+  (true (ginjish-compiler::gte 1 1))
+  (true (ginjish-compiler::gte "foo" "bar"))
+  (false (ginjish-compiler::gte "bar" "foo"))
+  (true (ginjish-compiler::gte "bar" "bar"))
+  (true (ginjish-compiler::gte '(1 2) '(1)))
+  (false (ginjish-compiler::gte '(1) '(1 2)))
+  (true (ginjish-compiler::gte '(2) '(1)))
+  (true (ginjish-compiler::gte '(1 2 3) '(1 2 3)))
+  (true (ginjish-compiler::gte '(2) '(1 2 3)))
+  (true (ginjish-compiler::gte '(1 (2) 3) '(1 (1) 3))))
