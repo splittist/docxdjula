@@ -234,3 +234,68 @@
   (true (ginjish-compiler::gte '(1 2 3) '(1 2 3)))
   (true (ginjish-compiler::gte '(2) '(1 2 3)))
   (true (ginjish-compiler::gte '(1 (2) 3) '(1 (1) 3))))
+
+(defun if-test-helper (string &optional env)
+  (let ((ginjish-compiler::*context* env))
+    (with-output-to-string (s)
+      (funcall (ginjish-compiler::compile-element
+		(esrap:parse 'ginjish-grammar::suite
+			     string))
+	       s))))
+
+(define-test if*
+  :parent compiler)
+
+(define-test if-simple
+  :parent if*
+  (is string=
+      "..."
+      (if-test-helper "{% if true %}...{% endif %}")))
+
+(define-test if-elif
+  :parent if*
+  (is string=
+      "..."
+      (if-test-helper "{% if false %}XXX{% elif true %}...{% else %}XXX{% endif %}")))
+
+(define-test if-elif-deep
+  :parent if*
+  (is string=
+      "0"
+      (if-test-helper (format nil "{% if a == 0 %}0~{{% elif a == ~D %}~:*~D~}{% else %}x{% endif %}" (alexandria:iota 999 :start 1)) '("a" 0)))
+  (is string=
+      "10"
+      (if-test-helper (format nil "{% if a == 0 %}0~{{% elif a == ~D %}~:*~D~}{% else %}x{% endif %}" (alexandria:iota 999 :start 1)) '("a" 10)))
+  (is string=
+      "999"
+      (if-test-helper (format nil "{% if a == 0 %}0~{{% elif a == ~D %}~:*~D~}{% else %}x{% endif %}" (alexandria:iota 999 :start 1)) '("a" 999)))
+  (is string=
+      "x"
+      (if-test-helper (format nil "{% if a == 0 %}0~{{% elif a == ~D %}~:*~D~}{% else %}x{% endif %}" (alexandria:iota 999 :start 1)) '("a" 1000))))
+
+(define-test else
+  :parent if*
+  (is string=
+      "..."
+      (if-test-helper "{% if false %}XXX{% else %}...{% endif %}")))
+
+(define-test empty
+  :parent if*
+  (is string=
+      "[]"
+      (if-test-helper "[{% if true %}{% else %}{% endif %}]")))
+
+(define-test complete
+  :parent if*
+  (is string=
+      "C"
+      (if-test-helper "{% if a %}A{% elif b %}B{% elif c == d %}C{% else %}D{% endif %}" '("a" 0 "b" nil "c" 42 "d" 42.0))))
+
+(define-test no-scope
+  :parent if*
+  (is string=
+      "1"
+      (if-test-helper "{% if a %}{% set foo = 1 %}{% endif %}{{ foo }}" '("a" t)))
+  (is string=
+      "1"
+      (if-test-helper "{% if true %}{% set foo = 1 %}{% endif %}{{ foo }}")))

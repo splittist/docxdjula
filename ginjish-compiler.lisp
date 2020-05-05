@@ -474,11 +474,11 @@
 	(else (alexandria:when-let ((it (third rest)))
 		(compile-element it))))
     (alexandria:named-lambda :if (stream)
-      (cond ((funcall test stream)
+      (cond ((truthy (funcall test stream))
 	     (funcall then stream))
 	    (elifs
 	     (loop for (test consequent) in elifs
-		when (funcall test stream)
+		when (truthy (funcall test stream))
 		do (funcall consequent stream)
 		  (loop-finish)))
 	    (else
