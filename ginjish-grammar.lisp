@@ -163,7 +163,7 @@
 				     (? (and ws "if" ws or-test ws "else" ws expression)))
   (:lambda (c)
 	   (if (second c)
-	       `(:if ,(fourth (second c)) ,(first c) ,(eighth (second c)))
+	       `(:if-expr ,(fourth (second c)) ,(first c) ,(eighth (second c)))
 	       (first c))))
 
 (defrule or-test (or or-test-sub and-test))
@@ -545,7 +545,7 @@ if_stmt ::=  "if" assignment_expression ":" suite
 (defrule t-if (and t-if-start suite (* (and t-if-elif suite)) (? (and t-if-else suite)) t-if-end)
   (:destructure (test then &optional elifs else &rest end)
     (declare (ignore end))
-    `(:if ,test ,then ,@(mapcar (lambda (elif) (list (first elif) (second elif))) elifs) ,(second else))))
+    `(:if ,test ,then ,(second else) ,(mapcar (lambda (elif) (list (first elif) (second elif))) elifs))))
 
 (defrule t-if-start (and (and t-statement-start ws* "if" ws) expression (and ws* t-statement-end))
   (:function second))

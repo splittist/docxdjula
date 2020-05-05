@@ -89,18 +89,34 @@
 
 (defgeneric print-expression (thing stream)
   (:method (thing stream)
-    (princ thing stream)))
+    (princ thing stream))
+  (:method ((thing list) stream)
+    (princ "[" stream)
+    (loop for l on thing
+       do (print-expression (car l) stream)
+       when (cdr l)
+	 do (princ ", " stream))
+    (princ "]" stream))
+  (:method ((thing hash-table) stream)
+    (princ "{" stream)
+    (loop for k on (alexandria:hash-table-keys thing)
+	 do (print-expression (car k) stream)
+	 (princ ":" stream)
+	 (print-expression (gethash (car k) thing) stream)
+       when (cdr k)
+	 do (princ ", " stream))
+    (princ "}" stream)))
 
 (defmethod compile-tagged-element ((tag (eql :expression)) rest)
   (let ((expr (compile-element (first rest))))
     (alexandria:named-lambda :expression (stream)
       (print-expression (funcall expr stream) stream))))
 
-(defmethod compile-tagged-element ((tag (eql :if)) rest)
+(defmethod compile-tagged-element ((tag (eql :if-expr)) rest)
   (let ((test (compile-element (first rest)))
 	(then (compile-element (second rest)))
 	(else (compile-element (third rest))))
-    (alexandria:named-lambda :if (stream)
+    (alexandria:named-lambda :if-expr (stream)
       (if (truthy (funcall test stream))
 	  (funcall then stream)
 	  (funcall else stream)))))
@@ -353,12 +369,122 @@
     (alexandria:named-lambda :set (stream)
       (mapcar (alexandria:rcurry #'funcall stream) elements))))
 
-;; :DICT
+(defmethod compile-tagged-element ((tag (eql :dict)) rest)
+  (let ((elements
+	 (loop for (key value) in rest
+	    collecting (list (compile-element key)
+			     (compile-element value)))))
+    (alexandria:named-lambda :dict (stream)
+      (let ((ht (make-hash-table :test 'equal)))
+	(loop for (key value) in elements
+	   do (setf (gethash (funcall key stream) ht)
+		    (funcall value stream)))
+	ht))))
+
+(defmethod compile-tagged-element ((tag (eql :identifier)) rest)
+  (alexandria:named-lambda :identifier (stream)
+    (declare (ignore stream))
+    (load-value *context* (first rest))))
+
+(defmethod compile-tagged-element ((tag (eql :get-attr)) rest)
+  (let ((primary (compile-element (first rest)))
+	(identifier (second (second rest))))
+    (alexandria:named-lambda :get-attr (stream)
+      (load-value (funcall primary stream)
+		  identifier))))
+
+(defclass slice ()
+  ((%lower-bound :initarg :lower-bound :reader lower-bound)
+   (%upper-bound :initarg :upper-bound :reader upper-bound)
+   (%stride :initarg :stride :reader stride)))
+
+(defmethod print-object ((object slice) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (format stream "[~A:~A:~A]" (lower-bound object) (upper-bound object) (stride object))))
+
+(defun make-slice (lower upper stride)
+  (make-instance 'slice :lower-bound lower :upper-bound upper :stride stride))
+
+(defmethod compile-tagged-element ((tag (eql :proper-slice)) rest)
+  (let ((args (mapcar #'compile-element rest)))
+    (alexandria:named-lambda :proper-slice (stream)
+      (apply #'make-slice (mapcar (alexandria:rcurry #'funcall stream) args)))))
+
+(defgeneric get-item (object indices)
+  (:method ((object list) indices)
+    (if (= 1 (length indices))
+	(let ((index (first indices)))
+	  (if (integerp index)
+	      (progn
+		(when (minusp index)
+		  (incf index (length object)))
+		(elt object index))
+	      (load-value object index)))
+	(load-value object indices)))
+  (:method ((object string) indices)
+    (unless (and (= 1 (length indices))
+		 (integerp (first indices)))
+      (error "Malformed attribute for string"))
+    (let ((index (first indices)))
+      (when (minusp index)
+	(incf index (length object)))
+      (string (elt object (first indices)))))
+  (:method ((object hash-table) indices)
+    (gethash indices object)))
+
+(defmethod compile-tagged-element ((tag (eql :get-item)) rest)
+  (let ((primary (compile-element (first rest)))
+	(indices (mapcar #'compile-element (second rest))))
+    (alexandria:named-lambda :get-item (stream)
+      (get-item (funcall primary stream)
+		(mapcar (alexandria:rcurry #'funcall stream) indices)))))
+
+(defgeneric get-slice (object slice)
+  (:method ((object list) (slice slice))
+    (loop for index from (or (lower-bound slice) 0)
+       by (or (stride slice) 1)
+       below (or (upper-bound slice) (length object))
+       collecting (elt object index)))
+  (:method ((object string) (slice slice))
+    (let ((chars (get-slice (coerce object 'list) slice)))
+      (coerce chars 'string))))
+
+(defmethod compile-tagged-element ((tag (eql :slicing)) rest)
+  (let ((primary (compile-element (first rest)))
+	(slice (compile-element (second rest))))
+    (alexandria:named-lambda :slicing (stream)
+      (get-slice (funcall primary stream)
+		 (funcall slice stream)))))
+
+;;; TODO :call
+
+(defmethod compile-tagged-element ((tag (eql :raw)) rest)
+  (alexandria:named-lambda :raw (stream)
+    (princ (first rest) stream)))
+
+;;; TODO :for
+
+(defmethod compile-tagged-element ((tag (eql :if)) rest)
+  (let ((test (compile-element (first rest)))
+	(then (compile-element (second rest)))
+	(elifs (alexandria:when-let ((it (fourth rest)))
+		 (loop for (test consequent) in it
+		    collecting (list (compile-element test)
+				     (compile-element consequent)))))
+	(else (alexandria:when-let ((it (third rest)))
+		(compile-element it))))
+    (alexandria:named-lambda :if (stream)
+      (cond ((funcall test stream)
+	     (funcall then stream))
+	    (elifs
+	     (loop for (test consequent) in elifs
+		when (funcall test stream)
+		do (funcall consequent stream)
+		  (loop-finish)))
+	    (else
+	     (funcall else stream))))))
 
 #|
-(defvar *context*)
-
-
 
 ;;; compilation and rendering
 
