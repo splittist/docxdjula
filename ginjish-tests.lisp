@@ -205,6 +205,34 @@
       1
       (ginjish-compiler::load-value (make-instance 'load-value-example :a 1 :b 2) 'a)))
 
+(define-test setf-load-value
+  :parent compiler
+  (is equal
+      '(1 3 3)
+      (let ((*context* '(2 3 3))) (setf (ginjish-compiler::load-value *context* 0) 1) *context*))
+  (is equal
+      '(a 1)
+      (let ((*context* nil)) (setf (ginjish-compiler::load-value *context* 'a) 1) *context*))
+  (is equal
+      "foo"
+      (let ((*context* "woo")) (setf (ginjish-compiler::load-value *context* 0) #\f) *context*))
+  (is equal
+      '((a . 2) (b . 2))
+      (let ((*context* '((a . 1) (b . 2))))
+	(setf (ginjish-compiler::load-value *context* 'a) 2)
+	*context*))
+  (is equal
+      '(("a" . 2) ("b" . 2))
+      (let ((*context* (serapeum:dict "a" 1 "b" 2)))
+	(setf (ginjish-compiler::load-value *context* "a") 2)
+	(sort (alexandria:hash-table-alist *context*) #'string< :key #'car)))
+  (is equal
+      2
+      (let ((*context* (make-instance 'load-value-example :a 1 :b 2)))
+	(setf (ginjish-compiler::load-value *context* 'a) 2)
+	(slot-value *context* 'a))))
+  
+
 (define-test truthy
   :parent compiler
   (false (ginjish-compiler::truthy nil))

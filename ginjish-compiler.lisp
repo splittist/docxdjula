@@ -26,26 +26,62 @@
   (:method (map (key integer))
     (elt map key)))
 
-#+(or)(defgeneric store-value (map key value)
+(defun set-plist-value (list key value)
+  (loop for (k v) on list by #'cddr
+     with collected = nil
+     collect k into res
+     if (name-equal k key)
+     do (setf collected t)
+     and collect value into res
+     else collect v into res
+     finally
+       (unless collected
+	 (setf res (list* key value res)))
+       (return res)))
+
+(defgeneric set-load-value (map key value) ; FIXME missing a step?
+  (:method :around (map key value)
+    (declare (ignore map key))
+    (values value (call-next-method)))
   (:method ((map list) (key integer) value)
-    (setf (elt map key) value))
+    (setf (elt map key) value)
+    map)
   (:method ((map list) key value)
-    (if (listp (car map))
+    (if (consp (car map))
 	(let ((acons (assoc key map :test #'name-equal)))
 	  (if acons
-	      (rplacd acons value)
-	      (setf map (acons key value map))))
-	(let (()))))
-  (:method ((map hash-table) key)
-    (setf (gethash key map) value))
+	      (progn
+		(rplacd acons value)
+		map)
+	      (list* (cons key value) map)))
+	(set-plist-value map key value)))
+  (:method ((map hash-table) key value)
+    (setf (gethash key map) value)
+    map)
   (:method ((map standard-object) key value) ; FIXME accessors?
     (loop for slot in (closer-mop:class-slots (class-of map))
        for name = (closer-mop:slot-definition-name slot)
-       when (and (slot-boundp map name)
-		 (name-equal name key))
-       do (return (setf (slot-value map name) value))))
+       when (name-equal name key)
+       do (setf (slot-value map name) value)
+	 (return map)))
   (:method (map (key integer) value)
-    (setf (elt map key) value)))
+    (setf (elt map key) value)
+    map))
+
+(define-setf-expander load-value (place key
+				  &aux (new-val (gensym "NEW-VAL"))
+				    (place-store (gensym "PLACE"))
+				  &environment env)
+  (declare (ignore env))
+  (values ()
+	  ()
+	  `(,new-val)
+	  `(progn
+	     (multiple-value-bind (,new-val ,place-store)
+		 (set-load-value ,place ,key ,new-val)
+	       (setf ,place ,place-store)
+	       ,new-val))
+	  `(load-value ,place ,key)))
 
 (defclass context ()
   ((%map :initarg :map)
@@ -58,6 +94,10 @@
   (with-slots (%map %parent) map
     (or (load-value %map key)
 	(and %parent (load-value %parent key)))))
+
+(defmethod save-value ((map context) key value)
+  (with-slots (%map) map
+    (save-value %map key value)))
 
 (defgeneric truthy (thing)
   (:method ((thing (eql 0)))
@@ -506,6 +546,19 @@
 		    (loop-finish)
 		  finally (return triggered)))
 	  (and else (funcall else stream))))))
+
+(defmethod compile-tagged-element ((tag (eql :assign)) rest)
+  (let ((expr (compile-element (second rest)))
+	(targets (first rest)))
+    (if (= 1 (length targets))
+	(alexandria:named-lambda :assign (stream)
+	  (setf (load-value *context* (first targets))
+		(funcall expr stream)))
+	(alexandria:named-lambda :assign (stream)
+	  (let ((seq (funcall expr stream)))
+	    (dotimes (index (length targets))
+	      (setf (load-value *context* (elt targets index))
+		    (elt seq index))))))))
 
 #|
 

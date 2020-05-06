@@ -1,11 +1,6 @@
-;;;; ginjish-tests.lisp
+;;;; jinja-tests.lisp
 
-(cl:defpackage #:ginjish-tests
-  (:use #:cl #:parachute))
-
-(cl:in-package #:ginjish-tests)
-
-(define-test core-tags-suite)
+core-tags
 
 TestForLoop
 
