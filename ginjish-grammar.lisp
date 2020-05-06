@@ -1,6 +1,4 @@
-;;;; ginjish.lisp
-
-;(cl:require #:esrap)
+;;;; ginjish-grammar.lisp
 
 (cl:defpackage #:ginjish-grammar
   (:use #:cl #:esrap))
@@ -27,17 +25,21 @@
 
 (defrule singlequote-string-char (or (not-singlequote character) (and #\\ #\')))
 
-(defrule stringliteral (or doublequote-string singlequote-string))
+(defrule stringliteral (and (or doublequote-string singlequote-string)
+			    (* (and ws (or doublequote-string singlequote-string))))
+  (:lambda (s)
+    (let ((strings (list* (first s) (mapcar #'second (second s)))))
+      `(:string ,(apply #'concatenate 'string strings)))))
 
 (defrule doublequote-string (and #\" (* doublequote-string-char) #\")
   (:destructure (q1 string q2)
 		(declare (ignore q1 q2))
-		(list :string (text string))))
+		(text string)))
 
 (defrule singlequote-string (and #\' (* singlequote-string-char) #\')
   (:destructure (q1 string q2)
 		(declare (ignore q1 q2))
-		(list :string (text string))))
+		(text string)))
 
 
 ;;; numbers
@@ -525,7 +527,7 @@ target      ::= identifier
 		    #+(or)attributeref
 		    #+(or)subscription
 		    #+(or)slicing
-		    identifier))
+		    #+(or)identifier name))
 
 (defrule tuple-target (and "(" ws* (? target-list) ws* ")")
   (:lambda (e)

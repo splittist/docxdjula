@@ -26,6 +26,27 @@
   (:method (map (key integer))
     (elt map key)))
 
+#+(or)(defgeneric store-value (map key value)
+  (:method ((map list) (key integer) value)
+    (setf (elt map key) value))
+  (:method ((map list) key value)
+    (if (listp (car map))
+	(let ((acons (assoc key map :test #'name-equal)))
+	  (if acons
+	      (rplacd acons value)
+	      (setf map (acons key value map))))
+	(let (()))))
+  (:method ((map hash-table) key)
+    (setf (gethash key map) value))
+  (:method ((map standard-object) key value) ; FIXME accessors?
+    (loop for slot in (closer-mop:class-slots (class-of map))
+       for name = (closer-mop:slot-definition-name slot)
+       when (and (slot-boundp map name)
+		 (name-equal name key))
+       do (return (setf (slot-value map name) value))))
+  (:method (map (key integer) value)
+    (setf (elt map key) value)))
+
 (defclass context ()
   ((%map :initarg :map)
    (%parent :initarg :parent :initform nil)))
@@ -474,15 +495,17 @@
 	(else (alexandria:when-let ((it (third rest)))
 		(compile-element it))))
     (alexandria:named-lambda :if (stream)
-      (cond ((truthy (funcall test stream))
-	     (funcall then stream))
-	    (elifs
-	     (loop for (test consequent) in elifs
-		when (truthy (funcall test stream))
-		do (funcall consequent stream)
-		  (loop-finish)))
-	    (else
-	     (funcall else stream))))))
+      (or (and (truthy (funcall test stream))
+	       (or (funcall then stream) t))
+	  (and elifs
+	       (loop with triggered = nil
+		  for (test consequent) in elifs
+		  when (truthy (funcall test stream))
+		  do (funcall consequent stream)
+		    (setf triggered t)
+		    (loop-finish)
+		  finally (return triggered)))
+	  (and else (funcall else stream))))))
 
 #|
 

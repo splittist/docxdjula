@@ -117,14 +117,14 @@
       '(:mul 3 (:minus 4 7))
       (esrap:parse 'ginjish-grammar::expression "3 * (4 - 7)"))
   (is equal
-      '(:if (:lt (:identifier "a") (:identifier "b"))
+      '(:if-expr (:lt (:identifier "a") (:identifier "b"))
 	t
 	(:get-item
 	 (:get-attr (:identifier "default") (:identifier "x"))
 	 (3 4)))
       (esrap:parse 'ginjish-grammar::expression "true if a < b else default.x[3,4]"))
   (is equal
-      '(:if (:lt (:identifier "a") (:identifier "b"))
+      '(:if-expr (:lt (:identifier "a") (:identifier "b"))
 	t
 	(:slicing
 	 (:get-attr (:identifier "default") (:identifier "x"))
