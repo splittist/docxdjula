@@ -95,10 +95,6 @@
     (or (load-value %map key)
 	(and %parent (load-value %parent key)))))
 
-(defmethod save-value ((map context) key value)
-  (with-slots (%map) map
-    (save-value %map key value)))
-
 (defgeneric truthy (thing)
   (:method ((thing (eql 0)))
     nil)
@@ -153,6 +149,8 @@
 (defgeneric print-expression (thing stream)
   (:method (thing stream)
     (princ thing stream))
+  (:method ((thing (eql nil)) stream)
+    (values))
   (:method ((thing list) stream)
     (princ "[" stream)
     (loop for l on thing
@@ -568,17 +566,19 @@
 	    collecting (list target (compile-element exprs))))
 	(suite (compile-element (second rest))))
     (alexandria:named-lambda :with (stream)
-      (let ((*context* (make-context *context* '()))) ; FIXME environment
+      (let ((scope '())) ; FIXME environment
 	(loop for (target exprs) in assignments
 	   if (= 1 (length target))
-	   do (setf (load-value *context* (first target))
+	   do (setf (load-value scope (first target))
 		    (funcall exprs stream))
 	   else
 	   do (let ((seq (funcall exprs stream)))
 		(dotimes (index (length target))
-		  (setf (load-value *context* (elt target index))
+		  (setf (load-value scope (elt target index))
 			(elt seq index))))
-	   finally (funcall suite stream))))))
+	   finally
+	     (let ((*context* (make-context *context* scope)))
+	       (funcall suite stream)))))))
 
 #|
 

@@ -231,7 +231,6 @@
       (let ((*context* (make-instance 'load-value-example :a 1 :b 2)))
 	(setf (ginjish-compiler::load-value *context* 'a) 2)
 	(slot-value *context* 'a))))
-  
 
 (define-test truthy
   :parent compiler
@@ -332,4 +331,9 @@
   :parent compiler
   (is string=
       "42 = 23|1 = 2"
-      (
+      (if-test-helper "{% with a=42, b=23 %}{{ a }} = {{ b }}{% endwith %}|{{ a }} = {{ b }}"
+		      '(a 1 b 2)))
+  (is string=
+      "1|2|3|4|5"
+      (if-test-helper "{% with a=1, b=2, c=b, d=e, e=5 %}{{ a }}|{{ b }}|{{ c }}|{{ d }}|{{ e }}{% endwith %}"
+		      '(b 3 e 4))))

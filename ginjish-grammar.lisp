@@ -568,7 +568,6 @@ if_stmt ::=  "if" assignment_expression ":" suite
 ;; include
 ;; import
 ;; from
-;; with
 
 (defrule t-with (and t-with-start suite t-with-end)
   (:lambda (w)
