@@ -127,6 +127,8 @@
 (defmethod compile-element (element)
   (constantly element))
 
+(defvar *autoescape* nil)
+
 (defvar *context*)
 
 (defvar *filters*)
@@ -559,6 +561,24 @@
 	    (dotimes (index (length targets))
 	      (setf (load-value *context* (elt targets index))
 		    (elt seq index))))))))
+
+(defmethod compile-tagged-element ((tag (eql :with)) rest)
+  (let ((assignments
+	 (loop for (target exprs) in (first rest)
+	    collecting (list target (compile-element exprs))))
+	(suite (compile-element (second rest))))
+    (alexandria:named-lambda :with (stream)
+      (let ((*context* (make-context *context* '()))) ; FIXME environment
+	(loop for (target exprs) in assignments
+	   if (= 1 (length target))
+	   do (setf (load-value *context* (first target))
+		    (funcall exprs stream))
+	   else
+	   do (let ((seq (funcall exprs stream)))
+		(dotimes (index (length target))
+		  (setf (load-value *context* (elt target index))
+			(elt seq index))))
+	   finally (funcall suite stream))))))
 
 #|
 

@@ -327,3 +327,9 @@
   (is string=
       "1"
       (if-test-helper "{% if true %}{% set foo = 1 %}{% endif %}{{ foo }}")))
+
+(define-test with
+  :parent compiler
+  (is string=
+      "42 = 23|1 = 2"
+      (

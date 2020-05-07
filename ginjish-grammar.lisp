@@ -470,7 +470,7 @@
 
 ;;; t-statement
 
-(defrule t-statement (or t-raw t-if t-for t-set-block t-set t-autoescape))
+(defrule t-statement (or t-raw t-if t-for t-set-block t-set t-autoescape t-with))
 
 (defrule t-raw (and t-raw-start raw-content t-raw-end)
   (:lambda (r)
@@ -569,9 +569,26 @@ if_stmt ::=  "if" assignment_expression ":" suite
 ;; import
 ;; from
 ;; with
-;; autoescape
 
-(defvar *autoescape* nil)
+(defrule t-with (and t-with-start suite t-with-end)
+  (:lambda (w)
+    `(:with ,(first w) ,(second w))))
+
+(defrule t-with-start (and (and t-statement-start ws* "with" ws) assign-list ws* t-statement-end)
+  (:function second))
+
+(defrule t-with-end (and t-statement-start ws* "endwith" ws* t-statement-end)
+  (:constant nil))
+
+(defrule assign-list (and assign-element (* (and (and ws* "," ws*) assign-element)))
+  (:lambda (a)
+    `(,(first a) ,@(mapcar #'second (second a)))))
+
+(defrule assign-element (and target-list (and ws* "=" ws*) expression)
+  (:lambda (a)
+    (list (first a) (third a))))
+			  
+;; autoescape
 
 (defrule t-autoescape (and t-autoescape-start suite t-autoescape-end)
   (:destructure (start suite end)
