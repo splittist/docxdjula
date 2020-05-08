@@ -580,6 +580,84 @@
 	     (let ((*context* (make-context *context* scope)))
 	       (funcall suite stream)))))))
 
+(defgeneric to-list (thing) ; FIXME more general iterable?
+  (:method (thing)
+    (coerce thing 'list))
+  (:method ((thing hash-table))
+    (alexandria:hash-table-alist thing)))
+
+(defclass loop-counter ()
+  ((%length :initarg :length)
+   (index :initform 1)
+   (index0 :initform 0)
+   (revindex :initarg :revindex)
+   (revindex0 :initarg :revindex0)
+   (first :initform t)
+   (last :initarg :last)
+   (length :initarg :length)
+   (%cycles :initform '())
+   (depth :initarg :depth)
+   (depth0 :initarg :depth0)
+   (previtem :initform nil) ; FIXME undefined
+   (%thisitem :initarg :thisitem)
+   (nextitem :initarg :nextitem) ; FIXME undefined
+   (%changed :initform '())))
+
+(defun make-loop-counter (length this next) ; FIXME depth
+  (make-instance 'loop-counter
+		 :length length
+		 :revindex length
+		 :revindex0 (1- length)
+		 :last (= 1 length)
+		 :thisitem this
+		 :nextitem next))
+
+(defun inc-loop-counter (counter this next)
+  (with-slots (index index0 revindex revindex0 first last %length previtem %thisitem nextitem) counter
+    (incf index)
+    (incf index0)
+    (decf revindex)
+    (decf revindex0)
+    (setf first nil)
+    (setf last (= %length index)
+	  previtem %thisitem
+	  %thisitem this
+	  nextitem next)))
+
+(defmethod compile-tagged-element ((tag (eql :for)) rest)
+  (let ((targets (first rest))
+	(source (compile-element (second rest)))
+	(body (compile-element (third rest)))
+	(else (alexandria:when-let ((it (fourth rest)))
+		(compile-element it))))
+    (alexandria:named-lambda :for (stream)
+      (let ((s (to-list (funcall source stream))))
+	(if (null s)
+	    (funcall else stream)
+	    (let ((scope '())) ; FIXME environment
+	      (dotimes (index (length targets))
+		(setf (load-value scope (elt targets index))
+		      nil))
+	      (setf (load-value scope "loop")
+		    (make-loop-counter (length s) (first s) (second s)))
+	      (let ((*context* (make-context *context* scope)))
+		(if (= 1 (length targets)) ; FIXME DRY
+		    (setf (load-value *context* (first targets))
+			  (first s))
+		    (dotimes (index (length targets))
+		      (setf (load-value *context* (elt targets index))
+			    (elt (first s) index))))
+		(loop for (first . rest) on (rest s)
+		   do (princ scope)(funcall body stream)
+		     (if (= 1 (length targets))
+			 (setf (load-value *context* (first targets))
+			       first)
+			 (dotimes (index (length targets))
+			   (setf (load-value *context* (elt targets index))
+				 (elt first index))))
+		     (inc-loop-counter (load-value scope "loop") first (car rest))))))))))
+		   
+
 #|
 
 ;;; compilation and rendering

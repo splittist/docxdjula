@@ -502,10 +502,7 @@ target      ::= identifier
 (defrule t-for (and t-for-start suite (? (and t-for-else suite)) t-for-end)
   (:destructure ((target-list expression-list) suite &optional else-part &rest end)
     (declare (ignore end))
-    (let ((loop `(:for ,target-list ,expression-list ,suite)))
-      (alexandria:if-let ((else (second else-part)))
-	`(:if (null ,expression-list) ,else ,loop)
-	loop))))
+    `(:for ,target-list ,expression-list ,suite ,(second else-part))))
 
 (defrule t-for-start (and (and t-statement-start ws* "for" ws) target-list (and ws "in" ws) expression-list (and ws* t-statement-end))
   (:destructure (for-keyword target-list in-keyword expression-list &rest end)
