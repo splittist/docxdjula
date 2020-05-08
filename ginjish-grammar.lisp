@@ -315,10 +315,14 @@
 
 (defrule filter-expr (or test-expr filters))
 
-(defrule filters (* (and (and ws* "|" ws*) primary))
+(defrule filters (* (and (and ws* "|" ws*) filter-call))
   (:lambda (f)
-	   (when f
-	     `(:filter ,@(mapcar #'second f)))))
+    (when f
+      `(:filter ,@(mapcar #'second f)))))
+
+(defrule filter-call (and name  (? (and (and"(" ws*) (? mixed-argument-list) (and ws* ")"))))
+  (:lambda (c)
+    (list (first c) (second (second c)))))
 
 (defrule test-expr (and (and ws* "is") (? (and ws "not")) ws primary)
   (:lambda (e)
@@ -385,7 +389,11 @@
 
 (defrule mixed-argument-list (and mixed-argument (* (and (and ws* "," ws*) mixed-argument)) (? (and ws* ",")))
   (:lambda (m)
-    `(,(first m) ,@(mapcar #'second (second m)))))
+    (loop for item in (list* (first m) (mapcar #'second (second m)))
+       if (eql :keyword-item (first item))
+       collect (second item)
+       and collect (third item)
+       else collect item)))
 
 (defrule mixed-argument (or keyword-item positional-item))
 
@@ -418,7 +426,7 @@
 
 (defrule keyword-item (and name  ws* "=" ws* expression)
   (:lambda (k)
-    (list (read-keyword (first k)) (fifth k))))
+    (list :keyword-item (read-keyword (first k)) (fifth k))))
 
 (defrule slicing (and primary "[" ws* slice-list ws* "]")
   (:lambda (s)
@@ -486,28 +494,17 @@
   (:constant nil))
 
 ;; for
-#|
-for_stmt ::= "for" target_list "in" expression_list ":" suite
-             ["else" ":" suite]
 
-target_list ::= target ("," target)* [","]
-target      ::= identifier
-                | "(" [target_list] ")"
-                | "[" [target_list] "]"
-                | attributeref
-                | subscription
-                | slicing
-                | "*" target
-|#
 (defrule t-for (and t-for-start suite (? (and t-for-else suite)) t-for-end)
-  (:destructure ((target-list expression-list) suite &optional else-part &rest end)
+  (:destructure ((target-list expression-list test recursive) suite &optional else-part &rest end)
     (declare (ignore end))
-    `(:for ,target-list ,expression-list ,suite ,(second else-part))))
+    `(:for ,target-list ,expression-list ,test ,suite ,(second else-part) ,recursive)))
 
-(defrule t-for-start (and (and t-statement-start ws* "for" ws) target-list (and ws "in" ws) expression-list (and ws* t-statement-end))
-  (:destructure (for-keyword target-list in-keyword expression-list &rest end)
+(defrule t-for-start (and (and t-statement-start ws* "for" ws) target-list (and ws "in" ws) expression-list
+			  (? test-expr) (? (and ws* "recursive")) (and ws* t-statement-end))
+  (:destructure (for-keyword target-list in-keyword expression-list test recursive &rest end)
     (declare (ignore for-keyword in-keyword end))
-    (list target-list expression-list)))
+    (list target-list expression-list test recursive)))
 
 (defrule t-for-else (and t-statement-start ws* "else" ws* t-statement-end)
   (:constant nil))

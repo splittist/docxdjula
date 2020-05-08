@@ -1,9 +1,87 @@
 ;;;; ginjish-compiler.lisp
 
+(cl:defpackage #:ginjish.filters) ; FIXME parameterize
+
+(cl:defpackage #:ginjish.tests) ; FIXME parameterize
+
 (cl:defpackage #:ginjish-compiler
   (:use #:cl))
 
 (cl:in-package #:ginjish-compiler)
+
+(defgeneric symbolize (thing)
+  (:method ((thing symbol))
+    thing)
+  (:method ((thing string))
+    (serapeum:with-standard-input-syntax
+     (let ((*read-eval* nil)
+	   (*package* (find-package "GINJISH-COMPILER"))) ; FIXME good choice?
+       (read-from-string thing)))))
+
+(defmacro define-filter (name args &body body)
+  (let* ((filter-package (find-package "GINJISH.FILTERS"))
+	 (function-name (intern (symbol-name name) filter-package)))
+    (multiple-value-bind (body decls docstring)
+	(alexandria:parse-body body :documentation t)
+      `(progn
+	 (defun ,function-name (,@args) ; FIXME error handling
+	   ,@(serapeum:unsplice docstring)
+	   ,@decls
+	   ,@body)
+	 (export ',function-name ,filter-package)))))
+
+(defun find-filter (name)
+  (find-symbol (symbol-name (symbolize name)) (find-package "GINJISH.FILTERS")))
+
+(defun apply-filters (value filters stream)
+  (loop for (name args) in filters
+     with result = (funcall value stream)
+     do (alexandria:if-let ((fn (find-filter name)))
+	  (let ((arguments (mapcar (alexandria:rcurry #'funcall stream) args)))
+	    (setf result (apply fn result arguments)))
+	  (error "Unknown filter '~A'" name))
+     finally (return result)))
+
+;;; Some example filters for testing
+
+(define-filter capitalize (s)
+  (string-capitalize s))
+
+(define-filter length (seq)
+  (length seq))
+
+(define-filter list (thing)
+  (to-list thing))
+
+(define-filter join (strings &optional sep)
+  (serapeum:string-join strings sep))
+
+(defmacro define-test (name args &body body)
+  (let* ((test-package (find-package "GINJISH.TESTS"))
+	 (function-name (intern (symbol-name name) test-package)))
+    (multiple-value-bind (body decls docstring)
+	(alexandria:parse-body body :documentation t)
+      `(progn
+	 (defun ,function-name (,@args) ; FIXME error handling
+	   ,@(serapeum:unsplice docstring)
+	   ,@decls
+	   ,@body)
+	 (export ',function-name ,test-package)))))
+
+(defun find-test (name)
+  (find-symbol (symbol-name (symbolize name)) (find-package "GINJISH.TESTS")))
+
+(defun apply-test (value test)
+  (destructuring-bind (name args) test
+    (alexandria:if-let ((fn (find-test name)))
+      (apply fn value args)
+      (error "Unknown test '~A'" name))))
+
+(defun read-keyword (string)
+  (serapeum:with-standard-input-syntax
+    (let ((*package* (find-package :keyword))
+	  (*read-eval* nil))
+      (read-from-string string))))
 
 (defun name-equal (a b)
   (string-equal (princ-to-string a) (princ-to-string b)))
@@ -126,10 +204,6 @@
 (defvar *autoescape* nil)
 
 (defvar *context*)
-
-(defvar *filters*)
-
-(defvar *tests*)
 
 (defgeneric compile-tagged-element (tag rest))
 
@@ -415,6 +489,13 @@
 
 ;;; TODO :test :test-not and :filter
 
+(defmethod compile-tagged-element ((tag (eql :filter)) rest)
+  (let ((value (compile-element (first rest)))
+	(filters (loop for (name args) in (rest rest)
+		    collect (list name (mapcar #'compile-element args)))))
+    (alexandria:named-lambda :filter (stream)
+      (apply-filters value filters stream))))
+
 (defmethod compile-tagged-element ((tag (eql :tuple)) rest) ; FIXME tuples are lists
   (let ((elements (mapcar #'compile-element rest)))
     (alexandria:named-lambda :tuple (stream)
@@ -627,9 +708,12 @@
 (defmethod compile-tagged-element ((tag (eql :for)) rest)
   (let ((targets (first rest))
 	(source (compile-element (second rest)))
-	(body (compile-element (third rest)))
-	(else (alexandria:when-let ((it (fourth rest)))
-		(compile-element it))))
+	(test (alexandria:when-let ((it (third rest)))
+		(compile-element it)))
+	(body (compile-element (fourth rest)))
+	(else (alexandria:when-let ((it (fifth rest)))
+		(compile-element it)))
+	(recursivep (sixth rest)))
     (alexandria:named-lambda :for (stream)
       (let ((s (to-list (funcall source stream))))
 	(if (null s)
