@@ -214,6 +214,19 @@
       '(a 1)
       (let ((*context* nil)) (setf (ginjish-compiler::load-value *context* 'a) 1) *context*))
   (is equal
+      '(a 1 b 2)
+      (let ((*context* '(b 2))) (setf (ginjish-compiler::load-value *context* 'a) 1) *context*))
+  (is equal
+      '(a 1 b nil)
+      (let ((*context* '(a nil b nil)))
+	(setf (ginjish-compiler::load-value *context* 'a) 1)
+	*context*))
+  (is equal
+      '(a nil)
+      (let ((*context* nil))
+	(setf (ginjish-compiler::load-value *context* 'a) nil)
+	*context*))
+  (is equal
       "foo"
       (let ((*context* "woo")) (setf (ginjish-compiler::load-value *context* 0) #\f) *context*))
   (is equal
@@ -300,25 +313,25 @@
       "x"
       (if-test-helper (format nil "{% if a == 0 %}0~{{% elif a == ~D %}~:*~D~}{% else %}x{% endif %}" (alexandria:iota 999 :start 1)) '("a" 1000))))
 
-(define-test else
+(define-test if-else
   :parent if*
   (is string=
       "..."
       (if-test-helper "{% if false %}XXX{% else %}...{% endif %}")))
 
-(define-test empty
+(define-test if-empty
   :parent if*
   (is string=
       "[]"
       (if-test-helper "[{% if true %}{% else %}{% endif %}]")))
 
-(define-test complete
+(define-test if-complete
   :parent if*
   (is string=
       "C"
       (if-test-helper "{% if a %}A{% elif b %}B{% elif c == d %}C{% else %}D{% endif %}" '("a" 0 "b" nil "c" 42 "d" 42.0))))
 
-(define-test no-scope
+(define-test if-no-scope
   :parent if*
   (is string=
       "1"
@@ -337,3 +350,35 @@
       "1|2|3|4|5"
       (if-test-helper "{% with a=1, b=2, c=b, d=e, e=5 %}{{ a }}|{{ b }}|{{ c }}|{{ d }}|{{ e }}{% endwith %}"
 		      '(b 3 e 4))))
+
+(define-test for
+  :parent compiler)
+
+(define-test for-simple
+  :parent for
+  (is string=
+      "0123456789"
+      (if-test-helper "{% for item in seq %}{{ item }}{% endfor %}" `(seq ,(alexandria:iota 10)))))
+
+(define-test for-else
+    :parent for
+    (is string=
+	"..."
+	(if-test-helper "{% for item in seq %}XXX{% else %}...{% endfor %}")))
+
+(define-test for-else-scoping
+    :parent for
+    (is string=
+	"42"
+	(if-test-helper "{% for item in [] %}{% else %}{{ item }}{% endfor %}" '(item 42))))
+
+(define-test for-empty-blocks
+    :parent for
+    (is string=
+	"<>"
+	(if-test-helper "<{% for item in seq %}{% else %}{% endfor %}>")))
+
+(define-test for-context-vars
+    :parent for
+    (is string=
+	

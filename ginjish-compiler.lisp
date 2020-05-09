@@ -165,6 +165,12 @@
   ((%map :initarg :map)
    (%parent :initarg :parent :initform nil)))
 
+(defmethod print-object ((object context) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (with-slots (%map %parent) object
+      (print-expression %map stream)
+      (format stream " (~A)" %parent))))
+
 (defun make-context (parent map)
   (make-instance 'context :parent parent :map map))
 
@@ -172,6 +178,11 @@
   (with-slots (%map %parent) map
     (or (load-value %map key)
 	(and %parent (load-value %parent key)))))
+
+(defmethod set-load-value ((map context) key value)
+  (setf (gethash key (slot-value map '%map))
+	value)
+  map)
 
 (defgeneric truthy (thing)
   (:method ((thing (eql 0)))
@@ -604,8 +615,6 @@
   (alexandria:named-lambda :raw (stream)
     (princ (first rest) stream)))
 
-;;; TODO :for
-
 (defmethod compile-tagged-element ((tag (eql :if)) rest)
   (let ((test (compile-element (first rest)))
 	(then (compile-element (second rest)))
@@ -667,44 +676,6 @@
   (:method ((thing hash-table))
     (alexandria:hash-table-alist thing)))
 
-(defclass loop-counter ()
-  ((%length :initarg :length)
-   (index :initform 1)
-   (index0 :initform 0)
-   (revindex :initarg :revindex)
-   (revindex0 :initarg :revindex0)
-   (first :initform t)
-   (last :initarg :last)
-   (length :initarg :length)
-   (%cycles :initform '())
-   (depth :initarg :depth)
-   (depth0 :initarg :depth0)
-   (previtem :initform nil) ; FIXME undefined
-   (%thisitem :initarg :thisitem)
-   (nextitem :initarg :nextitem) ; FIXME undefined
-   (%changed :initform '())))
-
-(defun make-loop-counter (length this next) ; FIXME depth
-  (make-instance 'loop-counter
-		 :length length
-		 :revindex length
-		 :revindex0 (1- length)
-		 :last (= 1 length)
-		 :thisitem this
-		 :nextitem next))
-
-(defun inc-loop-counter (counter this next)
-  (with-slots (index index0 revindex revindex0 first last %length previtem %thisitem nextitem) counter
-    (incf index)
-    (incf index0)
-    (decf revindex)
-    (decf revindex0)
-    (setf first nil)
-    (setf last (= %length index)
-	  previtem %thisitem
-	  %thisitem this
-	  nextitem next)))
-
 (defmethod compile-tagged-element ((tag (eql :for)) rest)
   (let ((targets (first rest))
 	(source (compile-element (second rest)))
@@ -714,32 +685,46 @@
 	(else (alexandria:when-let ((it (fifth rest)))
 		(compile-element it)))
 	(recursivep (sixth rest)))
+    (declare (ignore test recursivep))
     (alexandria:named-lambda :for (stream)
       (let ((s (to-list (funcall source stream))))
 	(if (null s)
 	    (funcall else stream)
-	    (let ((scope '())) ; FIXME environment
+	    (let* ((scope (make-hash-table :test 'equal))
+		   (length (length s))
+		   (loop-dict (serapeum:dict "length" length)))
 	      (dotimes (index (length targets))
 		(setf (load-value scope (elt targets index))
 		      nil))
-	      (setf (load-value scope "loop")
-		    (make-loop-counter (length s) (first s) (second s)))
+	      (setf (load-value scope "loop") loop-dict)
 	      (let ((*context* (make-context *context* scope)))
-		(if (= 1 (length targets)) ; FIXME DRY
-		    (setf (load-value *context* (first targets))
-			  (first s))
-		    (dotimes (index (length targets))
-		      (setf (load-value *context* (elt targets index))
-			    (elt (first s) index))))
-		(loop for (first . rest) on (rest s)
-		   do (princ scope)(funcall body stream)
+		(loop 
+		   for (this . rest) on s
+		   for previtem = nil then this
+		   for nextitem = (first rest)
+		   for index from 1
+		   for index0 from 0
+		   for revindex downfrom length
+		   for revindex0 downfrom (1- length)
+		   for first = t then nil
+		   for last = (= index length)
+		   do (setf (gethash "index" loop-dict) index
+			    (gethash "index0" loop-dict) index0
+			    (gethash "revindex" loop-dict) revindex
+			    (gethash "revindex0" loop-dict) revindex0
+			    (gethash "first" loop-dict) first
+			    (gethash "last" loop-dict) last
+			    (gethash "previtem" loop-dict) previtem
+			    (gethash "nextitem" loop-dict) nextitem)
+		   ;; depth depth0 cycle changed
 		     (if (= 1 (length targets))
 			 (setf (load-value *context* (first targets))
-			       first)
-			 (dotimes (index (length targets))
-			   (setf (load-value *context* (elt targets index))
-				 (elt first index))))
-		     (inc-loop-counter (load-value scope "loop") first (car rest))))))))))
+			       this)
+			 (dotimes (i (length targets))
+			   (setf (load-value *context* (elt targets i))
+				 (elt this i))))
+		   ;; when test item
+		     (funcall body stream)))))))))
 		   
 
 #|
