@@ -158,22 +158,22 @@
       '(:call (:identifier "foo") (1 2))
       (esrap:parse 'ginjish-grammar::call "foo(1,2)"))
   (is equal
-      '(:call (:identifier "foo") ((:identifier "a") (:a 1)))
+      '(:call (:identifier "foo") ((:identifier "a") :a 1))
       (esrap:parse 'ginjish-grammar::call "foo(a,a=1)")))
 
 (define-test filter
   :parent parser
   (is equal
-      '(:filter (:identifier "foo") (:identifier "upper") (:call (:identifier "truncate") (12)))
+      '(:filter (:identifier "foo") ("upper" ()) ("truncate" (12)))
       (esrap:parse 'ginjish-grammar::expression "foo | upper|truncate(12)")))
 
 (define-test test
   :parent parser
   (is equal
-      '(:test (:identifier "foo") (:identifier "zero"))
+      '(:test (:identifier "foo") ("zero" ()))
       (esrap:parse 'ginjish-grammar::expression "foo is zero"))
   (is equal
-      '(:test-not (:identifier "foo") (:identifier "zero"))
+      '(:test-not (:identifier "foo") ("zero" ()))
       (esrap:parse 'ginjish-grammar::expression "foo is not zero")))
 
 ;;; compiler
@@ -194,7 +194,7 @@
       (ginjish-compiler::load-value "foo" 0))
   (is equal
       1
-      (ginjish-compiler::load-value '(a 1 b 2) 'a))
+      (ginjish-compiler::load-value (list "a" 1 'b 2) 'a))
   (is equal
       1
       (ginjish-compiler::load-value '((a . 1) (b . 2)) 'a))
@@ -361,24 +361,179 @@
       (if-test-helper "{% for item in seq %}{{ item }}{% endfor %}" `(seq ,(alexandria:iota 10)))))
 
 (define-test for-else
-    :parent for
-    (is string=
-	"..."
-	(if-test-helper "{% for item in seq %}XXX{% else %}...{% endfor %}")))
+  :parent for
+  (is string=
+      "..."
+      (if-test-helper "{% for item in seq %}XXX{% else %}...{% endfor %}")))
 
 (define-test for-else-scoping
-    :parent for
-    (is string=
-	"42"
-	(if-test-helper "{% for item in [] %}{% else %}{{ item }}{% endfor %}" '(item 42))))
+  :parent for
+  (is string=
+      "42"
+      (if-test-helper "{% for item in [] %}{% else %}{{ item }}{% endfor %}" '(item 42))))
 
 (define-test for-empty-blocks
-    :parent for
-    (is string=
-	"<>"
-	(if-test-helper "<{% for item in seq %}{% else %}{% endfor %}>")))
+  :parent for
+  (is string=
+      "<>"
+      (if-test-helper "<{% for item in seq %}{% else %}{% endfor %}>")))
 
-(define-test for-context-vars
-    :parent for
-    (is string=
 	
+(define-test for-context-vars
+  :parent for
+  (is string=
+      "1|0|3|2|True|False|3###2|1|2|1|False|False|3###3|2|1|0|False|True|3###"
+      (if-test-helper "{% for item in seq %}{{ loop.index }}|{{ loop.index0 }}|{{ loop.revindex }}|{{ loop.revindex0 }}|{{ loop.first }}|{{ loop.last }}|{{ loop.length }}###{% endfor %}"
+		      (list 'seq '(1 2 3)))))
+
+(define-test for-cycling
+  :parent for
+  (is string=
+      "<1><2><1><2><1><2><1><2>"
+      (if-test-helper "{% for item in seq %}{{loop.cycle('<1>', '<2>') }}{% endfor %}{% for item in seq %}{{ loop.cycle(*through) }}{% endfor %}"
+		      (list 'seq (alexandria:iota 4) 'through (list "<1>" "<2>")))))
+
+(define-test for-lookaround
+  :parent for
+  (is string=
+      "x-0-1|0-1-2|1-2-3|2-3-x|"
+      (if-test-helper "{% for item in seq %}{{ loop.previtem|default('x') }}-{{ item }}-{{ loop.nextitem|default('x') }}|{% endfor %}"
+		      (list "seq" (alexandria:iota 4)))))
+
+(define-test for-changed
+  :parent for
+  (is string=
+      "True,False,True,True,False,True,True,False,False,"
+      (if-test-helper "{% for item in seq %}{{ loop.changed(item) }},{% endfor %}"
+		      (list 'seq nil nil 1 2 2 3 4 4 4))))
+
+(define-test for-scope
+  :parent for
+  (is string=
+      ""
+      (if-test-helper "{% for item in seq %}{% endfor %}{{ item }}" (list 'seq (alexandria:iota 10)))))
+
+(define-test for-varlen
+  :parent for
+  (is string=
+      "01234"
+      (if-test-helper "{% for item in iter %}{{ item }}{% endfor %}" (list 'iter (alexandria:iota 5)))))
+
+(define-test for-noniter ; FIXME is nil a better response?
+  :parent for
+  (fail (if-test-helper "{% for item in none %}...{% endfor %}")))
+
+(define-test for-recursive ; FIXME install function LOOP in global namespace to call this body?
+  :parent for
+  (is string=
+      "[1<[1][2]>][2<[1][2]>][3<[a]>]"
+      (if-test-helper "{% for item in seq recursive %}[{{ loop.previtem.a if loop.previtem is defined else 'x' }}.{{item.a }}.{{ loop.nextitem.a if loop.nextitem is defined else 'x'}}{% if item.b %}<{{ loop(item.b) }}>{% endif %}]{% endfor %}"
+		      (list 'seq
+			    (list 'a 1 'b (list (list 'a 1) (list 'a 2)))
+			    (list 'a 2 'b (list (list 'a 1) (list 'a 2)))
+			    (list 'a 3 'b (list (list 'a "a")))))))
+
+(define-test for-recursive-lookaround
+  :parent for
+  (is string=
+      "[x.1.2<[x.1.2][1.2.x]>][1.2.3<[x.1.2][1.2.x]>][2.3.x<[x.a.x]>]"
+      (if-test-helper "{% for item in seq recursive %}[{{ loop.previtem.a if loop.previtem is defined else 'x' }}.{{
+            item.a }}.{{ loop.nextitem.a if loop.nextitem is defined else 'x'
+            }}{% if item.b %}<{{ loop(item.b) }}>{% endif %}]{% endfor %}"
+		      (list 'seq
+			    (list 'a 1 'b (list (list 'a 1) (list 'a 2)))
+			    (list 'a 2 'b (list (list 'a 1) (list 'a 2)))
+			    (list 'a 3 'b (list (list 'a "a")))))))
+
+(define-test for-recursive-depth0
+  :parent for
+  (is string=
+      "[0:1<[1:1][1:2]>][0:2<[1:1][1:2]>][0:3<[1:a]>]"
+      (if-test-helper "{% for item in seq recursive %}[{{ loop.depth0 }}:{{ item.a }}{% if item.b %}<{{ loop(item.b) }}>{% endif %}]{% endfor %}"
+		      (list 'seq
+			    (list 'a 1 'b (list (list 'a 1) (list 'a 2)))
+			    (list 'a 2 'b (list (list 'a 1) (list 'a 2)))
+			    (list 'a 3 'b (list (list 'a "a")))))))
+
+(define-test for-recursive-depth
+  :parent for
+  (is string=
+      "[1:1<[2:1][2:2]>][1:2<[2:1][2:2]>][1:3<[2:a]>]"
+      (if-test-helper "{% for item in seq recursive %}[{{ loop.depth }}:{{ item.a }}{% if item.b %}<{{ loop(item.b) }}>{% endif %}]{% endfor %}"
+		      (list 'seq
+			    (list 'a 1 'b (list (list 'a 1) (list 'a 2)))
+			    (list 'a 2 'b (list (list 'a 1) (list 'a 2)))
+			    (list 'a 3 'b (list (list 'a "a")))))))
+
+(define-test for-looploop
+  :parent for
+  (is string=
+      "[1|1][1|2][2|1][2|2]"
+      (if-test-helper "{% for row in table %}{% set rowloop = loop %}{% for cell in row %}[{{ rowloop.index }}|{{ loop.index }}]{% endfor %}{% endfor %}"
+		      (list 'table (list "ab" "cd")))))
+
+(define-test for-reversed-bug
+  :parent for
+  (is string=
+      "1,2,3"
+      (if-test-helper "{% for i in items %}{{ i }}{% if not loop.last %},{% endif %}{% endfor %}"
+		      (list 'items (reverse (list 3 2 1))))))
+
+(define-test for-loop-errors
+  :parent for
+  (fail (if-test-helper "{% for item in [1] if loop.index
+                                      == 0 %}...{% endfor %}")))
+
+(define-test for-loop-filter ; test, rather
+  :parent for
+  (is string=
+      "[0][2][4][6][8]"
+      (if-test-helper "{% for item in range(10) if item is even %}[{{ item }}]{% endfor %}")))
+
+(define-test for-loop-unassignable ; FIXME is nil a better answer?
+  :parent for
+  (fail (if-test-helper "{% for loop in seq %}...{% endfor %}")))
+
+(define-test for-scoped-special-var
+  :parent for
+  (is string=
+      "[True|True|False][False|True|False]"
+      (if-test-helper "{% for s in seq %}[{{ loop.first }}{% for c in s %}|{{ loop.first }}{% endfor %}]{% endfor %}"
+		      (list 'seq (list "ab" "cd")))))
+
+(define-test for-scoped-loop-var
+  :parent for
+  (is string=
+      "TrueFalse"
+      (if-test-helper "{% for x in seq %}{{ loop.first }}{% for y in seq %}{% endfor %}{% endfor %}"
+		      (list 'seq "ab")))
+  (is string=
+      "TrueFalseTrueFalse"
+      (if-test-helper "{% for x in seq %}{% for y in seq %}{{ loop.first }}{% endfor %}{% endfor %}"
+		      (list 'seq "ab"))))
+
+(define-test for-recursive-empty-loop-iter
+  :parent for
+  (is string=
+      ""
+      (if-test-helper "{% for item in foo recursive %}{% endfor %}"
+		      (list 'foo nil))))
+
+;; TODO call_in_loop scoping_bug
+
+(define-test for-unpacking
+  :parent for
+  (is string=
+      "1|2|3"
+      (if-test-helper "{% for a, b, c in [[1, 2, 3]] %}{{ a }}|{{ b }}|{{ c }}{% endfor %}")))
+
+(define-test for-intended-scoping-with-set
+  :parent for
+  (is string=
+      "010203"
+      (if-test-helper "{% for item in seq %}{{ x }}{% set x = item %}{{ x }}{% endfor %}"
+		      (list 'x 0 'seq (list 1 2 3))))
+  (is string=
+      "919293"
+      (if-test-helper "{% set x = 9 %}{% for item in seq %}{{ x }}{% set x = item %}{{ x }}{% endfor %}"
+		      (list 'x 0 'seq (list 1 2 3)))))

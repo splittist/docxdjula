@@ -47,6 +47,11 @@
 (define-filter capitalize (s)
   (string-capitalize s))
 
+(define-filter default (thing default)
+  (if (truthy thing)
+      thing
+      default))
+
 (define-filter length (seq)
   (length seq))
 
@@ -71,11 +76,15 @@
 (defun find-test (name)
   (find-symbol (symbol-name (symbolize name)) (find-package "GINJISH.TESTS")))
 
-(defun apply-test (value test)
+(defun apply-test (value test stream)
   (destructuring-bind (name args) test
     (alexandria:if-let ((fn (find-test name)))
-      (apply fn value args)
+      (let ((arguments (mapcar (alexandria:rcurry #'funcall stream) args)))
+	(apply fn (funcall value stream) arguments))
       (error "Unknown test '~A'" name))))
+
+(define-test even (n)
+  (evenp n))
 
 (defun read-keyword (string)
   (serapeum:with-standard-input-syntax
@@ -235,7 +244,9 @@
   (:method (thing stream)
     (princ thing stream))
   (:method ((thing (eql nil)) stream)
-    (values))
+    (princ "False" stream))
+  (:method ((thing (eql t)) stream)
+    (princ "True" stream))
   (:method ((thing list) stream)
     (princ "[" stream)
     (loop for l on thing
@@ -507,6 +518,12 @@
     (alexandria:named-lambda :filter (stream)
       (apply-filters value filters stream))))
 
+(defmethod compile-tagged-element ((tag (eql :test)) rest)
+  (let ((value (compile-element (first rest)))
+	(test (list (first rest) (mapcar #'compile-element (rest rest)))))
+    (alexandria:named-lambda :test (stream)
+      (apply-test value test stream))))
+
 (defmethod compile-tagged-element ((tag (eql :tuple)) rest) ; FIXME tuples are lists
   (let ((elements (mapcar #'compile-element rest)))
     (alexandria:named-lambda :tuple (stream)
@@ -689,7 +706,7 @@
     (alexandria:named-lambda :for (stream)
       (let ((s (to-list (funcall source stream))))
 	(if (null s)
-	    (funcall else stream)
+	    (and else (funcall else stream))
 	    (let* ((scope (make-hash-table :test 'equal))
 		   (length (length s))
 		   (loop-dict (serapeum:dict "length" length)))
@@ -699,8 +716,8 @@
 	      (setf (load-value scope "loop") loop-dict)
 	      (let ((*context* (make-context *context* scope)))
 		(loop 
-		   for (this . rest) on s
 		   for previtem = nil then this
+		   for (this . rest) on s
 		   for nextitem = (first rest)
 		   for index from 1
 		   for index0 from 0

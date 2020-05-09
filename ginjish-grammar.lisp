@@ -320,13 +320,23 @@
     (when f
       `(:filter ,@(mapcar #'second f)))))
 
-(defrule filter-call (and name  (? (and (and"(" ws*) (? mixed-argument-list) (and ws* ")"))))
+(defrule filter-call (and name (? (and (and "(" ws*) (? mixed-argument-list) (and ws* ")"))))
   (:lambda (c)
     (list (first c) (second (second c)))))
 
-(defrule test-expr (and (and ws* "is") (? (and ws "not")) ws primary)
+(defrule test-expr (and (and ws* "is") (? (and ws "not")) ws test-call)
   (:lambda (e)
     `(,(if (second (second e)) :test-not :test) ,(fourth e))))
+
+(defrule test-call (and name (? (or test-single-argument test-multiple-argument)))
+  (:lambda (c)
+    (list (first c) (second c))))
+
+(defrule test-single-argument (and ws* expression) ; FIXME ws ?
+  (:function second))
+
+(defrule test-multiple-argument (and (and "(" ws*) (? mixed-argument-list) (and ws* ")"))
+  (:function second))
 
 ;;; atom
 
@@ -390,7 +400,7 @@
 (defrule mixed-argument-list (and mixed-argument (* (and (and ws* "," ws*) mixed-argument)) (? (and ws* ",")))
   (:lambda (m)
     (loop for item in (list* (first m) (mapcar #'second (second m)))
-       if (eql :keyword-item (first item))
+       if (and (consp item) (eql :keyword-item (first item)))
        collect (second item)
        and collect (third item)
        else collect item)))
@@ -501,10 +511,14 @@
     `(:for ,target-list ,expression-list ,test ,suite ,(second else-part) ,recursive)))
 
 (defrule t-for-start (and (and t-statement-start ws* "for" ws) target-list (and ws "in" ws) expression-list
-			  (? test-expr) (? (and ws* "recursive")) (and ws* t-statement-end))
+			  (? for-test-expr) (? (and ws* "recursive")) (and ws* t-statement-end))
   (:destructure (for-keyword target-list in-keyword expression-list test recursive &rest end)
     (declare (ignore for-keyword in-keyword end))
     (list target-list expression-list test recursive)))
+
+(defrule for-test-expr (and (and ws* "if") (? (and ws "not")) ws expression) ; FIXME what is the grammar?
+  (:lambda (e)
+    `(,(if (second (second e)) :test-not :test) ,(fourth e))))
 
 (defrule t-for-else (and t-statement-start ws* "else" ws* t-statement-end)
   (:constant nil))
