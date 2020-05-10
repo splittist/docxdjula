@@ -1,9 +1,5 @@
 ;;;; ginjish-compiler.lisp
 
-(cl:defpackage #:ginjish.filters) ; FIXME parameterize
-
-(cl:defpackage #:ginjish.tests) ; FIXME parameterize
-
 (cl:defpackage #:ginjish-compiler
   (:use #:cl))
 
@@ -18,18 +14,6 @@
 	   (*package* (find-package "GINJISH-COMPILER"))) ; FIXME good choice?
        (read-from-string thing)))))
 
-(defmacro define-filter (name args &body body)
-  (let* ((filter-package (find-package "GINJISH.FILTERS"))
-	 (function-name (intern (symbol-name name) filter-package)))
-    (multiple-value-bind (body decls docstring)
-	(alexandria:parse-body body :documentation t)
-      `(progn
-	 (defun ,function-name (,@args) ; FIXME error handling
-	   ,@(serapeum:unsplice docstring)
-	   ,@decls
-	   ,@body)
-	 (export ',function-name ,filter-package)))))
-
 (defun find-filter (name)
   (find-symbol (symbol-name (symbolize name)) (find-package "GINJISH.FILTERS")))
 
@@ -42,37 +26,6 @@
 	  (error "Unknown filter '~A'" name))
      finally (return result)))
 
-;;; Some example filters for testing
-
-(define-filter capitalize (s)
-  (string-capitalize s))
-
-(define-filter default (thing default)
-  (if thing ; FIXME - is 0 truthy?
-      thing
-      default))
-
-(define-filter length (seq)
-  (length seq))
-
-(define-filter list (thing)
-  (to-list thing))
-
-(define-filter join (strings &optional sep)
-  (serapeum:string-join strings sep))
-
-(defmacro define-test (name args &body body)
-  (let* ((test-package (find-package "GINJISH.TESTS"))
-	 (function-name (intern (symbol-name name) test-package)))
-    (multiple-value-bind (body decls docstring)
-	(alexandria:parse-body body :documentation t)
-      `(progn
-	 (defun ,function-name (,@args) ; FIXME error handling
-	   ,@(serapeum:unsplice docstring)
-	   ,@decls
-	   ,@body)
-	 (export ',function-name ,test-package)))))
-
 (defun find-test (name)
   (find-symbol (symbol-name (symbolize name)) (find-package "GINJISH.TESTS")))
 
@@ -81,9 +34,6 @@
     (let ((arguments (mapcar (alexandria:rcurry #'funcall stream) args)))
       (apply fn (funcall value stream) arguments))
     (error "Unknown test '~A'" name)))
-
-(define-test even (n)
-  (evenp n))
 
 (defun read-keyword (string)
   (serapeum:with-standard-input-syntax
