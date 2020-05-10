@@ -395,7 +395,7 @@
 
 (defrule call (and primary "(" ws* (? mixed-argument-list) ws* ")") ; FIXME lispy lambda list
   (:lambda (c)
-    (list :call (first c) (fourth c))))
+    (list :invoke (first c) (fourth c))))
 
 (defrule mixed-argument-list (and mixed-argument (* (and (and ws* "," ws*) mixed-argument)) (? (and ws* ",")))
   (:lambda (m)
@@ -506,19 +506,18 @@
 ;; for
 
 (defrule t-for (and t-for-start suite (? (and t-for-else suite)) t-for-end)
-  (:destructure ((target-list expression-list test recursive) suite &optional else-part &rest end)
+  (:destructure ((target-list expression-list filter recursive) suite &optional else-part &rest end)
     (declare (ignore end))
-    `(:for ,target-list ,expression-list ,test ,suite ,(second else-part) ,recursive)))
+    `(:for ,target-list ,expression-list ,filter ,suite ,(second else-part) ,recursive)))
 
 (defrule t-for-start (and (and t-statement-start ws* "for" ws) target-list (and ws "in" ws) expression-list
-			  (? for-test-expr) (? (and ws* "recursive")) (and ws* t-statement-end))
-  (:destructure (for-keyword target-list in-keyword expression-list test recursive &rest end)
+			  (? for-filter-expr) (? (and ws* "recursive")) (and ws* t-statement-end))
+  (:destructure (for-keyword target-list in-keyword expression-list filter recursive &rest end)
     (declare (ignore for-keyword in-keyword end))
-    (list target-list expression-list test recursive)))
+    (list target-list expression-list filter recursive)))
 
-(defrule for-test-expr (and (and ws* "if") (? (and ws "not")) ws expression) ; FIXME what is the grammar?
-  (:lambda (e)
-    `(,(if (second (second e)) :test-not :test) ,(fourth e))))
+(defrule for-filter-expr (and (and ws* "if" ws*) expression)
+  (:function second))
 
 (defrule t-for-else (and t-statement-start ws* "else" ws* t-statement-end)
   (:constant nil))

@@ -48,7 +48,7 @@
   (string-capitalize s))
 
 (define-filter default (thing default)
-  (if (truthy thing)
+  (if thing ; FIXME - is 0 truthy?
       thing
       default))
 
@@ -76,12 +76,11 @@
 (defun find-test (name)
   (find-symbol (symbol-name (symbolize name)) (find-package "GINJISH.TESTS")))
 
-(defun apply-test (value test stream)
-  (destructuring-bind (name args) test
-    (alexandria:if-let ((fn (find-test name)))
-      (let ((arguments (mapcar (alexandria:rcurry #'funcall stream) args)))
-	(apply fn (funcall value stream) arguments))
-      (error "Unknown test '~A'" name))))
+(defun apply-test (value name args stream)
+  (alexandria:if-let ((fn (find-test name)))
+    (let ((arguments (mapcar (alexandria:rcurry #'funcall stream) args)))
+      (apply fn (funcall value stream) arguments))
+    (error "Unknown test '~A'" name)))
 
 (define-test even (n)
   (evenp n))
@@ -519,10 +518,11 @@
       (apply-filters value filters stream))))
 
 (defmethod compile-tagged-element ((tag (eql :test)) rest)
-  (let ((value (compile-element (first rest)))
-	(test (list (first rest) (mapcar #'compile-element (rest rest)))))
-    (alexandria:named-lambda :test (stream)
-      (apply-test value test stream))))
+  (destructuring-bind (value-form (name args)) rest
+    (let ((value (compile-element value-form))
+	  (arguments (mapcar #'compile-element args)))
+      (alexandria:named-lambda :test (stream)
+	(apply-test value name arguments stream)))))
 
 (defmethod compile-tagged-element ((tag (eql :tuple)) rest) ; FIXME tuples are lists
   (let ((elements (mapcar #'compile-element rest)))
@@ -696,53 +696,62 @@
 (defmethod compile-tagged-element ((tag (eql :for)) rest)
   (let ((targets (first rest))
 	(source (compile-element (second rest)))
-	(test (alexandria:when-let ((it (third rest)))
-		(compile-element it)))
+	(filter (alexandria:when-let ((it (third rest)))
+		  (compile-element it)))
 	(body (compile-element (fourth rest)))
 	(else (alexandria:when-let ((it (fifth rest)))
 		(compile-element it)))
 	(recursivep (sixth rest)))
-    (declare (ignore test recursivep))
+    (declare (ignore recursivep))
     (alexandria:named-lambda :for (stream)
       (let ((s (to-list (funcall source stream))))
 	(if (null s)
 	    (and else (funcall else stream))
-	    (let* ((scope (make-hash-table :test 'equal))
-		   (length (length s))
-		   (loop-dict (serapeum:dict "length" length)))
+	    (let ((scope (make-hash-table :test 'equal))
+		  (loop-dict (make-hash-table :test 'equal)))
 	      (dotimes (index (length targets))
 		(setf (load-value scope (elt targets index))
 		      nil))
 	      (setf (load-value scope "loop") loop-dict)
 	      (let ((*context* (make-context *context* scope)))
-		(loop 
-		   for previtem = nil then this
-		   for (this . rest) on s
-		   for nextitem = (first rest)
-		   for index from 1
-		   for index0 from 0
-		   for revindex downfrom length
-		   for revindex0 downfrom (1- length)
-		   for first = t then nil
-		   for last = (= index length)
-		   do (setf (gethash "index" loop-dict) index
-			    (gethash "index0" loop-dict) index0
-			    (gethash "revindex" loop-dict) revindex
-			    (gethash "revindex0" loop-dict) revindex0
-			    (gethash "first" loop-dict) first
-			    (gethash "last" loop-dict) last
-			    (gethash "previtem" loop-dict) previtem
-			    (gethash "nextitem" loop-dict) nextitem)
-		   ;; depth depth0 cycle changed
-		     (if (= 1 (length targets))
-			 (setf (load-value *context* (first targets))
-			       this)
-			 (dotimes (i (length targets))
-			   (setf (load-value *context* (elt targets i))
-				 (elt this i))))
-		   ;; when test item
-		     (funcall body stream)))))))))
-		   
+		(flet ((load-targets (this)
+			 (if (serapeum:single targets)
+			     (setf (load-value *context* (first targets))
+				   this)
+			     (dotimes (i (length targets))
+			       (setf (load-value *context* (elt targets i))
+				     (elt this i))))))
+		  (when filter
+		    (setf s (loop for item in s
+			       do (load-targets item)		       
+			       when (funcall filter stream)
+			       collect item)))
+		  (let ((length (length s)))
+		    (setf (gethash "length" loop-dict)
+			  length
+			  (gethash "changed" loop-dict)
+			  (alexandria:compose #'not (serapeum:distinct)))
+		    (loop 
+		       for previtem = nil then this
+		       for (this . rest) on s
+		       for nextitem = (first rest)
+		       for index from 1
+		       for index0 from 0
+		       for revindex downfrom length
+		       for revindex0 downfrom (1- length)
+		       for first = t then nil
+		       for last = (= index length)
+		       do (setf (gethash "index" loop-dict) index
+				(gethash "index0" loop-dict) index0
+				(gethash "revindex" loop-dict) revindex
+				(gethash "revindex0" loop-dict) revindex0
+				(gethash "first" loop-dict) first
+				(gethash "last" loop-dict) last
+				(gethash "previtem" loop-dict) previtem
+				(gethash "nextitem" loop-dict) nextitem)
+		       ;; depth depth0 cycle changed
+			 (load-targets this)
+			 (funcall body stream)))))))))))
 
 #|
 
