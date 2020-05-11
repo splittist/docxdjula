@@ -1,8 +1,5 @@
 ;;;; ginjish-grammar.lisp
 
-(cl:defpackage #:ginjish-grammar
-  (:use #:cl #:esrap))
-
 (cl:in-package #:ginjish-grammar)
 
 ;;; whitespace

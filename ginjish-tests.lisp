@@ -155,10 +155,10 @@
 (define-test call
   :parent parser
   (is equal
-      '(:call (:identifier "foo") (1 2))
+      '(:invoke (:identifier "foo") (1 2))
       (esrap:parse 'ginjish-grammar::call "foo(1,2)"))
   (is equal
-      '(:call (:identifier "foo") ((:identifier "a") :a 1))
+      '(:invoke (:identifier "foo") ((:identifier "a") :a 1))
       (esrap:parse 'ginjish-grammar::call "foo(a,a=1)")))
 
 (define-test filter
@@ -537,3 +537,129 @@
       "919293"
       (if-test-helper "{% set x = 9 %}{% for item in seq %}{{ x }}{% set x = item %}{{ x }}{% endfor %}"
 		      (list 'x 0 'seq (list 1 2 3)))))
+
+;;; filters
+
+(define-test filters
+  :skip (
+	 filters-default ; false v undefined
+	 ))
+
+(define-test filters-capitalize
+  :parent filters
+  (is string=
+      "Foo bar"
+      (if-test-helper "{{ 'foo bar'|capitalize }}")))
+
+(define-test filters-center
+  :parent filters
+  (is string=
+      "   foo   "
+      (if-test-helper "{{ 'foo'|center(9) }}")))
+
+(define-test filters-default
+  :parent filters
+  (is string=
+      "no|False|no|yes"
+      (if-test-helper "{{ missing|default('no') }}|{{ false|default('no') }}|{{ false|default('no',true) }}|{{ given|default('no') }}"
+		      (list 'given "yes"))))
+
+(define-test filters-dictsort
+  :parent filters
+  (is string=
+      "[('aa', 0), ('AB', 3), ('b', 1), ('c', 2)]"
+      (if-test-helper "{{ foo|dictsort }}"
+		      (list 'foo (serapeum:dict "aa" 0 "b" 1 "c" 2 "AB" 3))))
+  (is string=
+      "[('AB', 3), ('aa', 0), ('b', 1), ('c', 2)]"
+      (if-test-helper "{{ foo|dictsort(case_sensitive=True) }}"
+		      (list 'foo (serapeum:dict "aa" 0 "b" 1 "c" 2 "AB" 3))))
+  (is string=
+      "[('aa', 0), ('b', 1), ('c', 2), ('AB', 3)]"
+      (if-test-helper "{{ foo|dictsort(by='value') }}"
+		      (list 'foo (serapeum:dict "aa" 0 "b" 1 "c" 2 "AB" 3))))
+  (is string=
+      "[('c', 2), ('b', 1), ('AB', 3), ('aa', 0)]"
+      (if-test-helper "{{ foo|dictsort(reverse=True) }}"
+		      (list 'foo (serapeum:dict "aa" 0 "b" 1 "c" 2 "AB" 3)))))
+
+(define-test filters-batch
+  :parent filters
+  (is string=
+      "[[0, 1, 2], [3, 4, 5], [6, 7, 8], [9]]|[[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 'X', 'X']]"
+      (if-test-helper "{{ foo|batch(3)|list }}|{{ foo|batch(3, 'X')|list }}"
+		      (list 'foo (alexandria:iota 10)))))
+
+(define-test filters-slice
+  :parent filters
+  (is string=
+      "[[0, 1, 2, 3], [4, 5, 6], [7, 8, 9]]|[[0, 1, 2, 3], [4, 5, 6, 'X'], [7, 8, 9, 'X']]"
+      (if-test-helper "{{ foo|slice(3)|list }}|{{ foo|slice(3, 'X')|list }}"
+		      (list 'foo (alexandria:iota 10)))))
+
+(define-test filters-escape
+  :parent filters
+  (is string=
+      "&lt;&#34;&gt;&amp;"
+      (if-test-helper "{{ '<\">&'|escape }}")))
+
+(define-test filters-trim
+  :parent filters
+  (is string=
+      "..stays.."
+      (if-test-helper "{{ foo|trim }}"
+		      (list 'foo "  ..stays..")))
+  (is string=
+      "  ..stays"
+      (if-test-helper "{{ foo|trim('.') }}"
+		      (list 'foo "  ..stays..")))
+  (is string=
+      "stays"
+      (if-test-helper "{{ foo|trim(' .') }}"
+		      (list 'foo "  ..stays.."))))
+
+(define-test filters-striptags
+  :parent filters
+  (is string=
+      "just a small example link to a webpage"
+      (if-test-helper "{{ foo|striptags }}"
+		      (list 'foo "  <p>just a small   
+ <a href=\"#\">example</a> link</p>
+<p>to a webpage</p> <!-- <p>and some commented stuff</p> -->"))))
+
+(define-test filters-filesizeformat
+  :parent filters
+  (is string=
+      "100 Bytes|1.0 kB|1.0 MB|1.0 GB|1.0 TB|100 Bytes|1000 Bytes|976.6 KiB|953.7 MiB|931.3 GiB"
+      (if-test-helper (concatenate 'string
+				    "{{ 100|filesizeformat }}|"
+				    "{{ 1000|filesizeformat }}|"
+				    "{{ 1000000|filesizeformat }}|"
+				    "{{ 1000000000|filesizeformat }}|"
+				    "{{ 1000000000000|filesizeformat }}|"
+				    "{{ 100|filesizeformat(true) }}|"
+				    "{{ 1000|filesizeformat(true) }}|"
+				    "{{ 1000000|filesizeformat(true) }}|"
+				    "{{ 1000000000|filesizeformat(true) }}|"
+				    "{{ 1000000000000|filesizeformat(true) }}")))
+  (is string=
+      "300 Bytes|3.0 kB|3.0 MB|3.0 GB|3.0 TB|300 Bytes|2.9 KiB|2.9 MiB"
+      (if-test-helper (concatenate 'string
+				   "{{ 300|filesizeformat }}|"
+				   "{{ 3000|filesizeformat }}|"
+				   "{{ 3000000|filesizeformat }}|"
+				   "{{ 3000000000|filesizeformat }}|"
+				   "{{ 3000000000000|filesizeformat }}|"
+				   "{{ 300|filesizeformat(true) }}|"
+				   "{{ 3000|filesizeformat(true) }}|"
+				   "{{ 3000000|filesizeformat(true) }}"))))
+
+(define-test filters-first
+  :parent filters
+  (is string=
+      "0"
+      (if-test-helper "{{ foo|first }}"
+		      (list 'foo (alexandria:iota 10)))))
+
+
+      

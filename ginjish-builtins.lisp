@@ -1,13 +1,6 @@
 ;;;; ginjish-builtins.lisp
 
-(qcl:defpackage #:ginjish-builtins
-  (:use #:cl))
-
 (cl:in-package #:ginjish-builtins)
-
-(cl:defpackage #:ginjish.filters) ; FIXME parameterize
-
-(cl:defpackage #:ginjish.tests) ; FIXME parameterize
 
 (defmacro define-filter (name args &body body)
   (let* ((filter-package (find-package "GINJISH.FILTERS"))
@@ -118,26 +111,45 @@ tojson
 (define-filter batch (seq n &optional fill)
   (do-batch seq n fill))
 
+(defun do-slice (seq n &optional fill)
+  (let ((length (length seq)))
+    (multiple-value-bind (normal-bucket-size oversized-buckets)
+	(truncate length n)
+      (let ((bucket-sizes (make-list n :initial-element normal-bucket-size)))
+	(dotimes (i oversized-buckets)
+	  (incf (elt bucket-sizes i)))
+	(loop for start = 0 then (+ start delta)
+	   for delta in bucket-sizes
+	   collect (if (and fill (= delta normal-bucket-size))
+		       (append (subseq seq start (+ start delta)) (list fill))
+		       (subseq seq start (+ start delta))))))))
+
+(define-filter slice (seq n &optional fill)
+  (do-slice seq n fill))
+
 (define-filter capitalize (s)
-  (string-capitalize s))
+  (if (zerop (length s))
+      s
+      (replace s (string-upcase (elt s 0)) :end1 1)))
 
 (defun do-center (s &optional (width 80))
   (let* ((len (length s))
 	 (remainder (- width len))
-	 (leading (ceiling remainder 2))
+	 (leading (floor remainder 2))
 	 (total (+ leading len)))
-    (serapeum:pad-start s total)))
+    (serapeum:pad-end (serapeum:pad-start s total) width)))
 
 (define-filter center (s &optional (width 80))
   (do-center s width))
 
-(defun do-default (thing default)
+(defun do-default (thing default &optional undefined)
+  (declare (ignore undefined)) ; FIXME - change from jinja
   (if thing ; FIXME - is 0 truthy?
       thing
       default))
 
-(define-filter default (thing default)
-  (do-default thing default))
+(define-filter default (thing default &optional undefined)
+  (do-default thing default undefined))
 
 (define-filter d (thing default)
   (do-default thing default))
@@ -184,8 +196,15 @@ tojson
 		      (t #'thing-lessp))))
       (sort alist pred :key key))))
 
-(define-filter dictsort (dict &key case-sensitive (by :key) reverse)
-  (do-dictsort dict :case-sensitive case-sensitive :by by :reverse reverse))
+(defun ensure-keyword (thing) ; FIXME non-strings; general calling convention
+  (if (keywordp thing)
+      thing
+      (ginjish-grammar::read-keyword thing)))
+
+(define-filter dictsort (dict &key case_sensitive (by :key) reverse)
+  (do-dictsort dict :case-sensitive case_sensitive
+	       :by (ensure-keyword by)
+	       :reverse reverse))
 
 (defparameter *escape-table*
   (serapeum:dict 'eql
@@ -193,7 +212,7 @@ tojson
    #\< "&lt;"
    #\> "&gt;"
    #\' "&apos;"
-   #\" "&quot;"))
+   #\" "&#34;"))
 
 (defun escape (s)
   (serapeum:escape s *escape-table*)) ; FIXME already escaped strings
@@ -204,9 +223,27 @@ tojson
 (define-filter e (s)
   (escape s))
 
-(define-filter file-size-format (n &key binary)
-  (serapeum:format-file-size-human-readable nil n
-					    :flavor (if binary :iec :si)))
+(define-filter trim (s &optional (chars " "))
+  (string-trim chars s))
+
+(defun do-striptags (s)
+  (let ((root (plump:parse s)))
+    (serapeum:trim-whitespace
+     (serapeum:collapse-whitespace
+      (with-output-to-string (stream)
+	(labels ((r (node)
+		   (loop for child across (plump:children node)
+		      do (typecase child
+			   (plump:comment nil)
+			  (plump:textual-node (write-string (plump:text child) stream))
+			  (plump:nesting-node (r child))))))
+	  (r root)))))))
+
+(define-filter striptags (s)
+  (do-striptags s))
+
+(define-filter filesizeformat (s &optional iec)
+  (serapeum:format-file-size-human-readable nil s :flavor (if iec :iec :si) :space t :suffix "B"))
 
 (define-filter first (seq)
   (elt seq 0))

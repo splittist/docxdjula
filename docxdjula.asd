@@ -13,6 +13,7 @@
 		       #:esrap) ; for gingish
   :components ((:file "package")
 	       (:file "regex")
+	       (:file "ginjish-package")
 	       (:file "ginjish-builtins")
 	       (:file "ginjish-grammar")
 	       (:file "ginjish-compiler")
