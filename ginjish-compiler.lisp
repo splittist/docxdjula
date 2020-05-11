@@ -171,11 +171,41 @@
 
 (defvar *context*)
 
+(defvar *trim-blocks* nil)
+
+(defvar *lstrip-blocks* nil)
+
 (defgeneric compile-tagged-element (tag rest))
 
 (defmethod compile-tagged-element ((tag (eql :matter)) rest)
   (alexandria:named-lambda :matter (stream)
     (princ (first rest) stream)))
+
+(defmethod compile-tagged-element ((tag (eql :newlines)) rest)
+  (alexandria:named-lambda :newlines (stream)
+    (loop repeat (first rest) do (terpri stream))))
+
+(defmethod compile-tagged-element ((tag (eql :left-ws+)) rest)
+  (alexandria:named-lambda :left-ws+ (stream)
+    (princ (first rest) stream)))
+
+(defmethod compile-tagged-element ((tag (eql :left-ws)) rest)
+  (alexandria:named-lambda :left-ws (stream)
+    (unless *lstrip-blocks* (princ (first rest) stream))))
+
+(defmethod compile-tagged-element ((tag (eql :right-newline)) rest)
+  (alexandria:named-lambda :right-newline (stream)
+    (unless *trim-blocks* (terpri stream))))
+
+(defmethod compile-tagged-element ((tag (eql :leading-ws)) rest)
+  (alexandria:named-lambda :leading-ws (stream)
+    (declare (ignore stream))
+    (values)))
+
+(defmethod compile-tagged-element ((tag (eql :trailing-ws)) rest)
+  (alexandria:named-lambda :trailing-ws (stream)
+    (declare (ignore stream))
+    (values)))
 
 (defmethod compile-tagged-element ((tag (eql :suite)) rest)
   (let ((contents (mapcar #'compile-element rest)))

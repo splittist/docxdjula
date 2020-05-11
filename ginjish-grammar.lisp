@@ -4,10 +4,16 @@
 
 ;;; whitespace
 
-(defrule ws (+ (or #\Space #\Tab #\Page))
+#+(or)(defrule ws (+ (or #\Space #\Tab #\Page))
   (:constant nil))
 
-(defrule ws* (* (or #\Space #\Tab #\Page))
+#+(or)(defrule ws* (* (or #\Space #\Tab #\Page))
+  (:constant nil))
+
+(defrule ws (+ (serapeum:whitespacep character))
+  (:text t))
+
+(defrule ws* (* (serapeum:whitespacep character))
   (:constant nil))
 
 ;;; strings
@@ -456,23 +462,46 @@
 
 ;;; template
 
-(defrule t-statement-start "{%")
+(defrule t-statement-start (and "{%" (? (or "+" "-"))))
 
-(defrule t-statement-end "%}")
+(defrule t-statement-end (and (? "-") "%}"))
 
-(defrule t-expression-start "{{")
+(defrule t-expression-start (and "{{" (? "-")))
 
-(defrule t-expression-end "}}")
+(defrule t-expression-end (and (? "-") "}}"))
 
-(defrule t-comment-start "{#")
+(defrule t-comment-start (and "{#" (? "-")))
 
-(defrule t-comment-end "#}")
+(defrule t-comment-end (and (? "-") "#}"))
 
-(defrule matter (+ (not (or t-statement-start t-expression-start t-comment-start)))
-  (:lambda (m)
-    (list :matter (text m))))
+(defrule trailing-ws (and (< 3 (and "-" (or "%" "}" "#") "}")) ws)
+  (:lambda (w)
+    (list :trailing-ws (text (second w)))))
 
-(defrule suite (* (or t-statement t-expression t-comment matter))
+(defrule leading-ws (and ws (& (and "{" (or "%" "{" "#") "-")))
+  (:lambda (w)
+    (list :leading-ws (text (first w)))))
+
+(defrule right-newline (and (< 2 t-statement-end) #\Newline)
+  (:constant (list :right-newline)))
+
+(defrule left-ws (and (< 1 #\Newline) (+ (or #\Space #\Tab)) (& (and "{%" (? "+"))))
+  (:lambda (l)
+    (list (if (second (third l)) :left-ws+ :left-ws) (text (second l)))))
+
+(defrule matter (+ (not (or t-statement-start t-expression-start t-comment-start #\Newline)))
+  (:lambda (l)
+    (list :matter (text l))))
+
+(defrule newlines (+ #\Newline)
+  (:lambda (n)
+    (list :newlines (length n))))
+
+(defrule suite (* (or leading-ws trailing-ws
+		      right-newline left-ws
+		      t-statement t-expression t-comment
+		      matter
+		      newlines))
   (:lambda (s)
     `(:suite ,@s)))
 
@@ -628,3 +657,13 @@ if_stmt ::=  "if" assignment_expression ":" suite
   (:lambda (e)
     `(:expression ,(third e))))
 
+;;; util
+
+(defun extract-identifiers (parsed-template)
+  (let ((identifiers '()))
+    (serapeum:walk-tree
+     (lambda (node)
+       (when (and (consp node) (eql :identifier (car node)))
+	 (pushnew (cadr node) identifiers :test #'string=)))
+     parsed-template)
+    (sort identifiers #'string<)))
