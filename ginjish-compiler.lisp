@@ -56,7 +56,7 @@
        when (and (slot-boundp map name)
 		 (name-equal name key))
        do (return (slot-value map name))))
-  (:method (map (key integer))
+  (:method ((map sequence) (key integer))
     (elt map key)))
 
 (defun set-plist-value (list key value)
@@ -220,6 +220,12 @@
   (:method (thing stream &optional recursive)
     (declare (ignore recursive))
     (princ thing stream))
+  (:method ((thing integer) stream &optional recursive)
+    (declare (ignore recursive))
+    (princ thing stream))
+  (:method ((thing rational) stream &optional recursive)
+    (declare (ignore recursive))
+    (princ (float thing) stream))
   (:method ((thing string) stream &optional recursive)
     (when recursive (princ "'" stream))
     (princ thing stream)
@@ -257,6 +263,10 @@
        when (cdr k)
 	 do (princ ", " stream))
     (princ "}" stream)))
+
+(defun print-expression-to-string (thing)
+  (with-output-to-string (s)
+    (print-expression thing s)))
 
 (defmethod compile-tagged-element ((tag (eql :expression)) rest)
   (let ((expr (compile-element (first rest))))
@@ -417,9 +427,9 @@
 
 (defgeneric in (item collection)
   (:method (item (collection sequence))
-    (find item collection :test #'equal)) ; FIXME alist, plist?
+    (serapeum:true (find item collection :test #'equal))) ; FIXME alist, plist?
   (:method ((item string) (collection string))
-    (serapeum:string*= item collection))
+    (serapeum:true (serapeum:string*= item collection)))
   (:method (item (collection hash-table))
     (nth-value 1 (gethash collection item))))
 
@@ -456,7 +466,9 @@
 
 (defgeneric pconcatenate (left right)
   (:method (left right)
-    (concatenate 'string (princ-to-string left) (princ-to-string right))))
+    (concatenate 'string
+		 (print-expression-to-string left)
+		 (print-expression-to-string right))))
 
 (define-binary-compiler :concatenate pconcatenate)
 
@@ -502,8 +514,6 @@
 	(power (compile-element (second rest))))
     (alexandria:named-lambda :pow (stream)
       (expt (funcall base stream) (funcall power stream)))))
-
-;;; TODO :test :test-not and :filter
 
 (defmethod compile-tagged-element ((tag (eql :filter)) rest)
   (let ((value (compile-element (first rest)))
@@ -595,7 +605,10 @@
 	(incf index (length object)))
       (string (elt object (first indices)))))
   (:method ((object hash-table) indices)
-    (gethash indices object)))
+    (gethash (if (serapeum:single indices)
+		 (first indices)
+		 indices)
+	     object)))
 
 (defmethod compile-tagged-element ((tag (eql :get-item)) rest)
   (let ((primary (compile-element (first rest)))
@@ -606,10 +619,20 @@
 
 (defgeneric get-slice (object slice)
   (:method ((object list) (slice slice))
-    (loop for index from (or (lower-bound slice) 0)
-       by (or (stride slice) 1)
-       below (or (upper-bound slice) (length object))
-       collecting (elt object index)))
+    (let ((stride (or (stride slice) 1))
+	  (start (or (lower-bound slice) 0))
+	  (end (or (upper-bound slice) (length object))))
+      (if (minusp stride)
+	  (loop for index
+	     from (1- end)
+	     by (abs stride)
+	     above (1- start)
+	     collecting (elt object index))
+	  (loop for index
+	     from start
+	     by stride
+	     below end
+	     collecting (elt object index)))))
   (:method ((object string) (slice slice))
     (let ((chars (get-slice (coerce object 'list) slice)))
       (coerce chars 'string))))

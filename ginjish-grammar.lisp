@@ -302,7 +302,7 @@
 			(and "+" ws* u-expr)
 			#+(or)(and "~" ws* u-expr)) ;; Jinja "~" is binary string concat
   (:lambda (u)
-    (list (serapeum:string-case (third u) (("+") :uplus) (("-") :uminus)) (third u))))
+    (list (serapeum:string-case (first u) (("+") :uplus) (("-") :uminus)) (third u))))
 
 (defrule power (and filtered-primary (? (and ws* "**" ws* u-expr)))
   (:lambda (p)
@@ -331,12 +331,13 @@
   (:lambda (e)
     `(,(if (second (second e)) :test-not :test) ,(fourth e))))
 
-(defrule test-call (and name (? (or test-single-argument test-multiple-argument)))
+(defrule test-call (and name (? (or test-multiple-argument test-single-argument)))
   (:lambda (c)
     (list (first c) (second c))))
 
 (defrule test-single-argument (and ws* expression) ; FIXME ws ?
-  (:function second))
+  (:lambda (a)
+    (list (second a))))
 
 (defrule test-multiple-argument (and (and "(" ws*) (? mixed-argument-list) (and ws* ")"))
   (:function second))

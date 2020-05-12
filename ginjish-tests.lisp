@@ -538,6 +538,167 @@
       (if-test-helper "{% set x = 9 %}{% for item in seq %}{{ x }}{% set x = item %}{{ x }}{% endfor %}"
 		      (list 'x 0 'seq (list 1 2 3)))))
 
+;;; syntax
+
+(define-test syntax
+  :parent compiler)
+
+(define-test syntax-slicing
+  :parent syntax
+  (is string=
+      "[1, 2, 3]|[3, 2, 1]"
+      (if-test-helper "{{ [1, 2, 3][:] }}|{{ [1, 2, 3][::-1] }}")))
+
+(define-test syntax-attr
+  :parent syntax
+  (is string=
+      "42|42"
+      (if-test-helper "{{ foo.bar }}|{{ foo['bar'] }}"
+		      (list 'foo (serapeum:dict "bar" 42)))))
+
+(define-test syntax-subscript
+  :parent syntax
+  (is string=
+      "0|2"
+      (if-test-helper "{{ foo[0] }}|{{ foo[-1] }}"
+		      (list 'foo (list 0 1 2)))))
+
+;; tuple
+
+(define-test syntax-math
+  :parent syntax
+  (is string=
+      "1.5|8"
+      (if-test-helper "{{ (1 + 1 * 2) - 3 / 2 }}|{{ 2**3 }}")))
+
+(define-test syntax-div
+  (is string=
+      "1|1.5|1"
+      (if-test-helper "{{ 3 // 2 }}|{{ 3 / 2 }}|{{ 3 % 2 }}")))
+
+(define-test syntax-unary
+  :parent syntax
+  (is string=
+      "3|-3"
+      (if-test-helper "{{ +3 }}|{{ -3 }}")))
+
+(define-test syntax-concat
+  :parent syntax
+  (is string=
+      "[1, 2]foo"
+      (if-test-helper "{{ [1, 2] ~ 'foo' }}")))
+
+(define-test syntax-inop
+  :parent syntax
+  (is string=
+      "True|False"
+      (if-test-helper "{{ 1 in [1, 2, 3] }}|{{ 1 not in [1, 2, 3] }}")))
+
+(define-test syntax-bool
+  :parent syntax
+  (is string=
+      "False|True|True"
+      (if-test-helper "{{ true and false }}|{{ false or true }}|{{ not false }}")))
+
+(define-test syntax-grouping
+  :parent syntax
+  (is string=
+      "False"
+      (if-test-helper "{{ (true and false) or (false and true) and not false }}")))
+
+(define-test syntax-django-attr
+  :parent syntax
+  (is string=
+      "1|1"
+      (if-test-helper "{{ [1, 2, 3].0 }}|{{ [[1]].0.0 }}")))
+
+(define-test syntax-conditional-expression
+  :parent syntax
+  (is string=
+      "0"
+      (if-test-helper "{{ 0 if true else 1 }}"))
+  (is string=
+      "<>"
+      (if-test-helper "<{{ 1 if false }}>")))
+
+(define-test syntax-filter-priority
+  :parent syntax
+  (is string=
+      "FOOBAR"
+      (if-test-helper "{{ 'foo'|upper + 'bar'|upper }}")))
+
+(define-test syntax-test-chaining
+  :parent syntax
+  (is string=
+      "True"
+      (if-test-helper "{{ 42 is string or 42 is number }}"))
+  (fail (if-test-helper "{{ foo is string is sequence }}")))
+
+(define-test syntax-string-concatenation
+  :parent syntax
+  (is string=
+      "foobarbaz"
+      (if-test-helper "{{ 'foo' \"bar\" 'baz' }}")))
+
+(define-test syntax-notin
+  :parent syntax
+  (is string=
+      "False"
+      (if-test-helper "{{ not 42 in bar }}"
+		      (list 'bar (alexandria:iota 100)))))
+
+(define-test syntax-operator-precedence
+  :parent syntax
+  (is string=
+      "5"
+      (if-test-helper "{{ 2 * 3 + 4 % 2 + 1 - 2 }}")))
+
+(define-test syntax-implicit-subscribed-tuple ; FIXME - changed test
+  :parent syntax
+  (is string=
+      "eggs"
+      (if-test-helper "{{ foo[1, 2] }}"
+		      (list 'foo (serapeum:dict '(1 2) "eggs")))))
+
+(define-test syntax-raw
+  :parent syntax
+  (is string=
+      "{{ FOO }} and {% BAR %}"
+      (if-test-helper "{% raw %}{{ FOO }} and {% BAR %}{% endraw %}")))
+
+(define-test syntax-localset
+  :parent syntax
+  (is string=
+      "0"
+      (if-test-helper "{% set foo = 0 %}{% for item in [1, 2] %}{% set foo = 1 %}{% endfor %}{{ foo }}")))
+
+(define-test syntax-parse-unary
+  :parent syntax
+  (is string=
+      "-42"
+      (if-test-helper "{{ -foo['bar'] }}"
+		      (list 'foo (serapeum:dict "bar" 42))))
+  (is string=
+      "42"
+      (if-test-helper "{{ -foo[\"bar\"]|abs }}"
+		      (list 'foo (serapeum:dict "bar" 42))))) ; FIXME - filter binds tighter than unary minus (why?)
+
+;;; lstrip-blocks
+
+(define-test lstrip-blocks)
+
+(cl-interpol:enable-interpol-syntax)
+
+(define-test lstrip-lstrip
+  :parent lstrip-blocks
+  (is string=
+      #?"\n"
+      (let ((ginjish-compiler::*lstrip-blocks* t)
+	    (ginjish-compiler::*trim-blocks* nil))
+	(if-test-helper #?"    {% if True %}\n    {% endif %}"))))
+
+(cl-interpol:disable-interpol-syntax)
+       
 ;;; filters
 
 (define-test filters

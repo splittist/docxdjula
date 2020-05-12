@@ -276,8 +276,164 @@ tojson
 (define-filter join (strings &optional sep)
   (serapeum:string-join strings sep))
 
+(define-filter upper (s)
+  (string-upcase s))
+
 ;;; tests
+
+#|
+
+odd
+even
+divisibleby
+defined
+undefined
+none
+boolean
+false
+true
+integer
+float
+lower
+upper
+string
+mapping
+number
+sequence
+iterable
+callable
+sameas
+escaped
+in
+==
+eq
+equalto
+!=
+ne
+>
+gt
+greaterthan
+ge
+>=
+<
+lt
+lessthan
+<=
+le
+
+|#
+
+(define-test odd (n)
+  (oddp n))
 
 (define-test even (n)
   (evenp n))
 
+(define-test divisibleby (n div)
+  (zerop (mod n div)))
+
+(define-test defined (x) ; FIXME how to handle Undefined?
+  (serapeum:true x))
+
+(define-test undefined (x) ; FIXME ditto
+  (null x))
+
+(define-test none (x) ; FIXME how handle None?
+  (null x))
+
+(define-test boolean (x)
+   (or (eq x t) (eq x nil)))
+
+(define-test false (x)
+   (null x))
+
+(define-test true (x)
+   (eq x t))
+
+(define-test integer (x)
+   (integerp x))
+
+(define-test float (x)
+   (floatp x))
+
+(define-test lower (s)
+  (eq :lower (serapeum:same-case-p s)))
+
+(define-test upper (s)
+  (eq :upper (serapeum:same-case-p s)))
+
+(define-test string (x)
+  (stringp x))
+
+(define-test mapping (x) ; FIXME is guessing OK?
+  (hash-table-p x))
+
+(define-test number (x)
+  (numberp x))
+
+(define-test sequence (x) ; FIXME really iterable?
+  (serapeum:sequencep x))
+
+(define-test sameas (x other)
+  (eq x other))
+
+(define-test iterable (x) ; FIXME really sequence?
+  (serapeum:sequencep x))
+
+(define-test callable (x)
+  (functionp x))
+
+;; TODO escaped
+
+(define-test in (x seq)
+  (serapeum:true
+   (typecase x
+     (vector
+      (search x seq :test #'equal))
+     (t
+      (find x seq :test #'equal)))))
+
+(define-test == (x other)
+  (equal x other))
+
+(define-test eq (x other)
+  (equal x other))
+
+(define-test equalto (x other)
+  (equal x other))
+
+(define-test != (x other)
+  (not (equal x other)))
+
+(define-test ne (x other)
+  (not (equal x other)))
+
+(define-test > (x other)
+  (ginjish-compiler::gt x other))
+
+(define-test gt (x other)
+  (ginjish-compiler::gt x other))
+
+(define-test greaterthan (x other)
+  (ginjish-compiler::gt x other))
+
+(define-test >= (x other)
+  (ginjish-compiler::gte x other))
+
+(define-test ge (x other)
+  (ginjish-compiler::gte x other))
+
+(define-test < (x other)
+  (ginjish-compiler::lt x other))
+
+(define-test lt (x other)
+  (ginjish-compiler::lt x other))
+
+(define-test lessthan (x other)
+  (ginjish-compiler::lt x other))
+
+(define-test <= (x other)
+  (ginjish-compiler::lte x other))
+
+(define-test le (x other)
+  (ginjish-compiler::lte x other))
