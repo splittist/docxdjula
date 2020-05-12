@@ -515,7 +515,21 @@
 
 ;;; t-statement
 
-(defrule t-statement (or t-raw t-if t-for t-set-block t-set t-autoescape t-with))
+(defrule t-statement (or
+		      t-raw
+		      t-for
+		      t-if
+		      t-block
+		      t-extends
+		      t-filter
+		      t-include
+		      t-import
+		      t-from
+		      t-with
+		      t-autoescape
+		      t-set-block
+		      t-set
+		      ))
 
 (defrule t-raw (and t-raw-start raw-content t-raw-end)
   (:lambda (r)
@@ -596,12 +610,125 @@ if_stmt ::=  "if" assignment_expression ":" suite
   (:constant nil))
 
 ;; block/endblock identifier
+
+(defrule t-block (and t-block-start suite t-block-end)
+  (:destructure ((name scoped) suite check-name)
+    (when (and check-name (not (equal name check-name)))
+      (error "Block name mismatch. Got '~A' but expected '~A'." check-name name))
+    (list :block name scoped suite)))
+
+(defrule t-block-start (and
+			(and t-statement-start ws* "block" ws)
+			name
+			(? (and ws "scoped"))
+			(and ws* t-statement-end))
+  (:destructure (start name scoped end)
+    (declare (ignore start end))
+    (list name (serapeum:true scoped))))
+		
+
+(defrule t-block-end (and (and t-statement-start ws* "endblock")
+			  (? (and ws name))
+			  (and ws* t-statement-end))
+  (:destructure (start name end)
+    (declare (ignore start end))
+    (second name)))
+
 ;; extends (or string identifier)
-;; macro / call
-;; filter identifier
+
+(defrule t-extends (and
+		    (and t-statement-start ws* "extends" ws)
+		    expression
+		    (and ws* t-statement-end))
+  (:destructure (start expr end)
+    (declare (ignore start end))
+    (list :extends expr)))
+
+;; filter
+
+(defrule t-filter (and t-filter-start suite t-filter-end)
+  (:destructure (filters suite end)
+    (declare (ignore end))
+    (list :filter-block filters suite)))
+
+(defrule t-filter-start (and
+			 (and t-statement-start ws* "filter" ws)
+			 short-filters
+			 (and ws* t-statement-end))
+  (:destructure (start filters end)
+    (declare (ignore start end))
+    filters))
+
+(defrule t-filter-end (and t-statement-start ws* "endfilter" ws* t-statement-end)
+  (:constant nil))
+
+(defrule short-filters (and filter-call filters)
+  (:lambda (f)
+    `(,(first f) ,@(rest (first (rest  f))))))
+
 ;; include
+
+(defrule t-include (and (and t-statement-start ws* "include" ws*)
+			expression
+			(? (and ws* "ignore" ws "missing"))
+			(? (and ws* (or "without" "with") ws "context"))
+			(and ws* t-statement-end))
+  (:destructure (start expr ignore with/out end)
+    (declare (ignore start end))
+    (list :include
+	  expr
+	  (serapeum:true ignore)
+	  (if (null with/out)
+	      t
+	      (if (string= "with" (second with/out)) t nil)))))
+
+    
+;; macro / call
 ;; import
+
+(defrule t-import (and (and t-statement-start ws* "import" ws*)
+		       expression
+		       (and ws "as" ws)
+		       target-list
+		       (? (and ws* (or "without" "with") ws "context"))
+		       (and ws* t-statement-end))
+  (:destructure (start expr as targets with/out end)
+    (declare (ignore start as end))
+    (list :import
+	  expr
+	  targets
+	  (if with/out
+	      t
+	      (if (string= "with" (second with/out)) t nil)))))
+
 ;; from
+
+(defrule t-from (and (and t-statement-start ws* "from" ws*)
+		     expression
+		     (and ws "import" ws)
+		     aliases
+		     (? (and ws* (or "without" "with") ws "context"))
+		     (and ws* t-statement-end))
+  (:destructure (start expr import aliases with/out end)
+    (declare (ignore start import end))
+    (list :from
+	  expr
+	  aliases
+	  (if with/out
+	      t
+	      (if (string= "with" (second with/out)) t nil)))))
+
+(defrule aliases (and alias (* (and (and ws* "," ws*) alias)))
+  (:lambda (a)
+    `(,(first a) ,@(mapcar #'second (second a)))))
+
+(defrule alias (or (and name ws "as" ws name) name)
+  (:lambda (a)
+    (if (consp a)
+	(list (first a) (fifth a))
+	a)))
+
+;; with
 
 (defrule t-with (and t-with-start suite t-with-end)
   (:lambda (w)
@@ -634,21 +761,27 @@ if_stmt ::=  "if" assignment_expression ":" suite
 (defrule t-autoescape-end (and t-statement-start ws* "endautoescape" ws* t-statement-end)
   (:constant nil))
 
-;; set / set target_list = expression_list
+;; set
 
 (defrule t-set (and t-statement-start ws* "set" ws target-list ws* "=" ws* expression ws* t-statement-end)
   (:lambda (s)
     `(:assign ,(fifth s) ,(ninth s))))
 
-;; set block / set target suite endset
+;; set block
 
 (defrule t-set-block (and t-set-block-start suite t-set-block-end)
   (:lambda (s)
-    `(:block-set ,(first s) ,(second s))))
+    `(:block-set ,@(first s) ,(second s))))
 
-(defrule t-set-block-start (and t-statement-start ws* "set" ws* target ws* t-statement-end)
-  (:function fifth))
-
+(defrule t-set-block-start (and
+			    (and t-statement-start ws* "set" ws*)
+			    target
+			    (? filters)
+			    (and ws* t-statement-end))
+  (:destructure (start target filters end)
+    (declare (ignore start end))
+    (list target filters)))
+	     
 (defrule t-set-block-end (and t-statement-start ws* "endset" ws* t-statement-end)
   (:constant nil))
 
