@@ -50,12 +50,23 @@
 	(cadr (member key map :test #'name-equal))))
   (:method ((map hash-table) key) ; FIXME symbols and strings as separate namespaces?
     (gethash key map))
-  (:method ((map standard-object) key) ; FIXME accessors?
-    (loop for slot in (closer-mop:class-slots (class-of map))
-       for name = (closer-mop:slot-definition-name slot)
-       when (and (slot-boundp map name)
-		 (name-equal name key))
-       do (return (slot-value map name))))
+  (:method ((map standard-object) key)
+    #+(or)(closer-mop:ensure-finalized map) ; accessing an instance, surely
+    (or
+     (loop for slot in (alexandria:mappend
+			#'closer-mop:class-direct-slots
+			(closer-mop:class-precedence-list (class-of map)))
+	for readers = (closer-mop:slot-definition-readers slot)
+	do (alexandria:when-let ((reader
+				  (car
+				   (member key readers
+					   :test #'name-equal))))
+	     (return (funcall reader map))))
+     (loop for slot in (closer-mop:class-slots (class-of map))
+	for name = (closer-mop:slot-definition-name slot)
+	when (and (slot-boundp map name)
+		  (name-equal name key))
+	do (return (slot-value map name)))))
   (:method ((map sequence) (key integer))
     (elt map key)))
 
@@ -91,12 +102,23 @@
   (:method ((map hash-table) key value)
     (setf (gethash key map) value)
     map)
-  (:method ((map standard-object) key value) ; FIXME accessors?
+  (:method ((map standard-object) key value) ; FIXME test writers
+    (or
+     (loop for slot in (alexandria:mappend
+			#'closer-mop:class-direct-slots
+			(closer-mop:class-precedence-list (class-of map)))
+	for writers = (closer-mop:slot-definition-writers slot)
+	do (alexandria:when-let ((writer
+				  (car
+				   (member key writers
+					   :test #'name-equal))))
+	     (funcall writer map key value)) ; FIXME ???
+	     (return map))
     (loop for slot in (closer-mop:class-slots (class-of map))
        for name = (closer-mop:slot-definition-name slot)
        when (name-equal name key)
        do (setf (slot-value map name) value)
-	 (return map)))
+	 (return map))))
   (:method (map (key integer) value)
     (setf (elt map key) value)
     map))

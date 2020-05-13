@@ -181,8 +181,11 @@
 (define-test compiler)
 
 (defclass load-value-example ()
-  ((a :initarg :a)
-   (b :initarg :b)))
+  ((a :initarg :a :accessor lve-a)
+   (b :initarg :b :accessor lve-b)))
+
+(defclass load-value-example2 (load-value-example)
+  ((c :initarg :c :accessor lve-c)))
 
 (define-test load-value
   :parent compiler
@@ -203,7 +206,16 @@
       (ginjish-compiler::load-value (serapeum:dict "a" 1 "b" 2) "a"))
   (is equal
       1
-      (ginjish-compiler::load-value (make-instance 'load-value-example :a 1 :b 2) 'a)))
+      (ginjish-compiler::load-value (make-instance 'load-value-example :a 1 :b 2) 'a))
+  (is equal
+      1
+      (ginjish-compiler::load-value (make-instance 'load-value-example2 :a 1 :b 2 :c 3) 'a))
+  (is equal
+      1
+      (ginjish-compiler::load-value (make-instance 'load-value-example :a 1 :b 2) 'lve-a))
+  (is equal
+      1
+      (ginjish-compiler::load-value (make-instance 'load-value-example2 :a 1 :b 2 :c 3) 'lve-a)))
 
 (define-test setf-load-value
   :parent compiler
@@ -243,7 +255,17 @@
       2
       (let ((*context* (make-instance 'load-value-example :a 1 :b 2)))
 	(setf (ginjish-compiler::load-value *context* 'a) 2)
-	(slot-value *context* 'a))))
+	(slot-value *context* 'a)))
+  (is equal
+      2
+      (let ((*context* (make-instance 'load-value-example :a 1 :b 2)))
+	(setf (ginjish-compiler::load-value *context* 'lve-a) 2)
+	(lve-a *context*)))
+  (is equal
+      2
+      (let ((*context* (make-instance 'load-value-example2 :a 1 :b 2 :c 3)))
+	(setf (ginjish-compiler::load-value *context* 'lve-a) 2)
+	(lve-a *context*))))
 
 (define-test truthy
   :parent compiler
@@ -390,7 +412,7 @@
   :parent for
   (is string=
       "<1><2><1><2><1><2><1><2>"
-      (if-test-helper "{% for item in seq %}{{loop.cycle('<1>', '<2>') }}{% endfor %}{% for item in seq %}{{ loop.cycle(*through) }}{% endfor %}"
+      (if-test-helper "{% for item in seq %}{{loop.cycle('<1>', '<2>') }}{% endfor %}{% for item in seq %}{{ loop.cycle(through[1],through[2]) }}{% endfor %}"
 		      (list 'seq (alexandria:iota 4) 'through (list "<1>" "<2>")))))
 
 (define-test for-lookaround
@@ -488,7 +510,8 @@
   :parent for
   (is string=
       "[0][2][4][6][8]"
-      (if-test-helper "{% for item in range(10) if item is even %}[{{ item }}]{% endfor %}")))
+      (if-test-helper "{% for item in range(10) if item is even %}[{{ item }}]{% endfor %}"
+		      (list (cons "range" 'ginjish-builtins::range)))))
 
 (define-test for-loop-unassignable ; FIXME is nil a better answer?
   :parent for
