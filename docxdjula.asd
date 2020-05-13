@@ -10,7 +10,7 @@
 		       #:cl-ppcre #:cl-interpol
 		       #:uiop #:alexandria #:split-sequence
 		       #:lquery
-		       #:esrap) ; for gingish
+		       #:esrap #:lorem-ipsum) ; for gingish
   :components ((:file "package")
 	       (:file "regex")
 	       (:file "ginjish-package")

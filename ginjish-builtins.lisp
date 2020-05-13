@@ -437,3 +437,64 @@ le
 
 (define-test le (x other)
   (ginjish-compiler::lte x other))
+
+;;; globals
+
+#|
+range
+lipsum
+dict
+cycler - current next reset
+joiner
+namespace
+|#
+
+(defun range (x &optional y z)
+  (let (start stop step)
+    (cond (z (setf start x stop y step z))
+	  (y (setf start x stop y step 1))
+	  (t (setf start 0 stop x step 1)))
+    (coerce (serapeum:range start stop step) 'list)))
+
+(defun lipsum (&key (paras 5) (html t) (min 20) (max 100))
+  (let ((paragraphs
+	 (loop repeat paras
+	    for prologue = t then nil
+	    collecting (lorem-ipsum:paragraph
+			:prologue prologue
+			:word-count (+ 1 min (random (- max min)))))))
+    (if html
+	(format nil "~{<p>~A</p>~%~}" paragraphs)
+	(format nil "~{~A~%~}" paragraphs))))
+
+(defun dict (&rest items)
+  (apply #'serapeum:dict items))
+  
+(defclass cycler ()
+  ((%items :initarg :items :accessor items)
+   (current :initarg :current :accessor current)
+   (%index :initform 0 :accessor index)))
+
+(defun cycler (items)
+  (make-instance 'cycler :items items :current (first items)))
+
+(defgeneric next (cycler)
+  (:method ((cycler cycler))
+    (incf (index cycler))
+    (prog1 (current cycler)
+      (setf (current cycler)
+	    (elt (items cycler)
+		 (mod (index cycler)
+		      (length (items cycler))))))))
+
+(defgeneric reset (cycler)
+  (:method ((cycler cycler))
+    (setf (index cycler) 0
+	  (current cycler) (first (items cycler)))))
+
+(defun joiner (&optional (sep ","))
+  (let ((first t))
+    (lambda ()
+      (if first
+	  (progn (setf first nil) "")
+	  sep))))

@@ -617,6 +617,13 @@
       (get-item (funcall primary stream)
 		(mapcar (alexandria:rcurry #'funcall stream) indices)))))
 
+(defmethod compile-tagged-element ((tag (eql :invoke)) rest)
+  (let ((func (compile-element (first rest)))
+	(args (mapcar #'compile-element (second rest))))
+    (alexandria:named-lambda :invoke (stream)
+      (apply (funcall func stream)
+	     (mapcar (alexandria:rcurry #'funcall stream) args)))))
+
 (defgeneric get-slice (object slice)
   (:method ((object list) (slice slice))
     (let ((stride (or (stride slice) 1))
