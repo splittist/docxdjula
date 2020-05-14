@@ -165,10 +165,14 @@
 (defrule expression conditional-expression)
 
 (defrule conditional-expression (and or-test
-				     (? (and ws "if" ws or-test ws "else" ws expression)))
+				     (? (and (and ws "if" ws)
+					     or-test
+					     (? (and
+						 (and ws "else" ws)
+						 expression)))))
   (:lambda (c)
 	   (if (second c)
-	       `(:if-expr ,(fourth (second c)) ,(first c) ,(eighth (second c)))
+	       `(:if-expr ,(second (second c)) ,(first c) ,(second (third (second c))))
 	       (first c))))
 
 (defrule or-test (or or-test-sub and-test))
@@ -490,6 +494,10 @@
   (:lambda (l)
     (list (if (second (third l)) :left-ws+ :left-ws) (text (second l)))))
 
+(defrule first-left-ws (and (+ (or #\Space #\Tab)) (& (and "{%" (? "+"))))
+  (:lambda (l)
+    (list (if (second (second l)) :left-ws+ :left-ws) (text (first l)))))
+
 (defrule matter (+ (not (or t-statement-start t-expression-start t-comment-start #\Newline)))
   (:lambda (l)
     (list :matter (text l))))
@@ -498,13 +506,14 @@
   (:lambda (n)
     (list :newlines (length n))))
 
-(defrule suite (* (or leading-ws trailing-ws
-		      right-newline left-ws
-		      t-statement t-expression t-comment
-		      matter
-		      newlines))
+(defrule suite (and (? first-left-ws)
+		    (* (or leading-ws trailing-ws
+			   right-newline left-ws
+			   t-statement t-expression t-comment
+			   matter
+			   newlines)))
   (:lambda (s)
-    `(:suite ,@s)))
+    `(:suite ,@(serapeum:unsplice (first s)) ,@(second s))))
 
 ;;; t-comment
 

@@ -779,7 +779,7 @@
 		    (setf (gethash "length" loop-dict)
 			  length
 			  (gethash "changed" loop-dict)
-			  (alexandria:compose #'not (serapeum:distinct)))
+			  (alexandria:compose #'serapeum:true (serapeum:distinct)))
 		    (loop 
 		       for previtem = nil then this
 		       for (this . rest) on s
@@ -798,7 +798,7 @@
 				(gethash "last" loop-dict) last
 				(gethash "previtem" loop-dict) previtem
 				(gethash "nextitem" loop-dict) nextitem)
-		       ;; depth depth0 cycle changed
+		       ;; depth depth0 cycle
 			 (load-targets this)
 			 (funcall body stream)))))))))))
 
