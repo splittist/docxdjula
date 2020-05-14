@@ -221,16 +221,16 @@
   :parent compiler
   (is equal
       '(1 3 3)
-      (let ((*context* '(2 3 3))) (setf (ginjish-compiler::load-value *context* 0) 1) *context*))
+      (let ((*context* (list 2 3 3))) (setf (ginjish-compiler::load-value *context* 0) 1) *context*))
   (is equal
       '(a 1)
       (let ((*context* nil)) (setf (ginjish-compiler::load-value *context* 'a) 1) *context*))
   (is equal
       '(a 1 b 2)
-      (let ((*context* '(b 2))) (setf (ginjish-compiler::load-value *context* 'a) 1) *context*))
+      (let ((*context* (list 'b 2))) (setf (ginjish-compiler::load-value *context* 'a) 1) *context*))
   (is equal
       '(a 1 b nil)
-      (let ((*context* '(a nil b nil)))
+      (let ((*context* (list 'a nil 'b nil)))
 	(setf (ginjish-compiler::load-value *context* 'a) 1)
 	*context*))
   (is equal
@@ -243,7 +243,7 @@
       (let ((*context* "woo")) (setf (ginjish-compiler::load-value *context* 0) #\f) *context*))
   (is equal
       '((a . 2) (b . 2))
-      (let ((*context* '((a . 1) (b . 2))))
+      (let ((*context* (list (cons 'a  1) (cons 'b  2))))
 	(setf (ginjish-compiler::load-value *context* 'a) 2)
 	*context*))
   (is equal

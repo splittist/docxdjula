@@ -108,12 +108,14 @@
 			#'closer-mop:class-direct-slots
 			(closer-mop:class-precedence-list (class-of map)))
 	for writers = (closer-mop:slot-definition-writers slot)
+	  then (closer-mop:slot-definition-writers slot)
 	do (alexandria:when-let ((writer
 				  (car
 				   (member key writers
+					   :key #'second
 					   :test #'name-equal))))
-	     (funcall writer map key value)) ; FIXME ???
-	     (return map))
+	     (funcall (fdefinition writer) value map)
+	     (return map)))
     (loop for slot in (closer-mop:class-slots (class-of map))
        for name = (closer-mop:slot-definition-name slot)
        when (name-equal name key)
