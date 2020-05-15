@@ -560,7 +560,16 @@
     (declare (ignore end))
     `(:for ,target-list ,expression-list ,filter ,suite ,(second else-part) ,recursive)))
 
-(defrule t-for-start (and (and t-statement-start ws* "for" ws) target-list (and ws "in" ws) expression-list
+(defrule for-expression-list (and or-test (* (and ws* "," ws* or-test)) (? (and ws* ","))) ; KLUDGE for 'for' filter grammar
+  (:lambda (e)
+    (case (length (second e))
+      (0 (if (third e)
+	     `(:tuple ,(first e))
+	     (first e)))
+      (t (let ((elements (mapcar #'fourth (second e))))
+	   `(:tuple ,(first e) ,@elements))))))
+
+(defrule t-for-start (and (and t-statement-start ws* "for" ws) target-list (and ws "in" ws) for-expression-list
 			  (? for-filter-expr) (? (and ws* "recursive")) (and ws* t-statement-end))
   (:destructure (for-keyword target-list in-keyword expression-list filter recursive &rest end)
     (declare (ignore for-keyword in-keyword end))

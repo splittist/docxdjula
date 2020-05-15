@@ -732,10 +732,7 @@
        
 ;;; filters
 
-(define-test filters
-  :skip (
-	 filters-default ; false v undefined
-	 ))
+(define-test filters)
 
 (define-test filters-capitalize
   :parent filters
