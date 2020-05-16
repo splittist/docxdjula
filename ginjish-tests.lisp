@@ -728,6 +728,96 @@
 	    (ginjish-compiler::*trim-blocks* nil))
 	(if-test-helper #?"    {% if True %}\n    {% endif %}"))))
 
+(define-test lstrip-trim
+  :parent lstrip-blocks
+  (is string=
+      ""
+      (let ((ginjish-compiler::*lstrip-blocks* t)
+	    (ginjish-compiler::*trim-blocks* t))
+	(if-test-helper #?"    {% if True %}\n    {% endif %}"))))
+
+(define-test lstrip-no-lstrip
+  :parent lstrip-blocks
+  (is string=
+      #?"    \n    "
+      (let ((ginjish-compiler::*lstrip-blocks* nil)
+	    (ginjish-compiler::*trim-blocks* nil))
+	(if-test-helper #?"    {% if True %}\n    {% endif %}"))))
+
+(define-test lstrip-blocks-false-with-no-lstrip
+  :parent lstrip-blocks
+  (is string=
+      #?"    \n    "
+      (let ((ginjish-compiler::*lstrip-blocks* nil)
+	    (ginjish-compiler::*trim-blocks* nil))
+	(if-test-helper #?"    {% if True %}\n    {% endif %}")))
+  (is string=
+      #?"    \n    "
+      (let ((ginjish-compiler::*lstrip-blocks* nil)
+	    (ginjish-compiler::*trim-blocks* nil))
+	(if-test-helper #?"    {%+ if True %}\n    {% endif %}"))))
+
+(define-test lstrip-endline
+  :parent lstrip-blocks
+  (is string=
+      #?"    hello\n    goodbye"
+      (let ((ginjish-compiler::*lstrip-blocks* t)
+	    (ginjish-compiler::*trim-blocks* nil))
+	(if-test-helper #?"    hello{% if True %}\n    goodbye{% endif %}"))))
+
+(define-test lstrip-inline
+  :parent lstrip-blocks
+  (is string=
+      "hello    "
+      (let ((ginjish-compiler::*lstrip-blocks* t)
+	    (ginjish-compiler::*trim-blocks* nil))
+	(if-test-helper #?"    {% if True %}hello    {% endif %}"))))
+
+(define-test lstrip-nested
+  :parent lstrip-blocks
+  (is string=
+      "a b c "
+      (let ((ginjish-compiler::*lstrip-blocks* t)
+	    (ginjish-compiler::*trim-blocks* nil))
+	(if-test-helper "    {% if True %}a {% if True %}b {% endif %}c {% endif %}"))))
+
+(define-test lstrip-left-chars
+  :parent lstrip-blocks
+  (is string=
+      #?"    abc \n        hello"
+      (let ((ginjish-compiler::*lstrip-blocks* t)
+	    (ginjish-compiler::*trim-blocks* nil))
+	(if-test-helper "    abc {% if True %}
+        hello{% endif %}"))))
+
+(define-test lstrip-embedded-strings
+  :parent lstrip-blocks
+  (is string=
+      " {% str %} "
+      (let ((ginjish-compiler::*lstrip-blocks* t)
+	    (ginjish-compiler::*trim-blocks* nil))
+	(if-test-helper "    {% set x = \" {% str %} \" %}{{ x }}"))))
+
+(define-test lstrip-preserve-leading-newlines
+  :parent lstrip-blocks
+  (is string=
+      #?"\n\n\n"
+      (let ((ginjish-compiler::*lstrip-blocks* t)
+	    (ginjish-compiler::*trim-blocks* nil))
+	(if-test-helper #?"\n\n\n{% set hello = 1 %}"))))
+
+(define-test lstrip-comment
+  :parent lstrip-blocks
+  (is string=
+      #?"\nhello\n"
+      (let ((ginjish-compiler::*lstrip-blocks* t)
+	    (ginjish-compiler::*trim-blocks* nil))
+	(if-test-helper "    {# if True #}
+hello
+    {#endif#}"))))
+
+
+
 (cl-interpol:disable-interpol-syntax)
        
 ;;; filters

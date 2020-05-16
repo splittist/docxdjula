@@ -4,12 +4,6 @@
 
 ;;; whitespace
 
-#+(or)(defrule ws (+ (or #\Space #\Tab #\Page))
-  (:constant nil))
-
-#+(or)(defrule ws* (* (or #\Space #\Tab #\Page))
-  (:constant nil))
-
 (defrule ws (+ (serapeum:whitespacep character))
   (:text t))
 
@@ -493,11 +487,17 @@
 (defrule right-newline (and (< 2 t-statement-end) #\Newline)
   (:constant (list :right-newline)))
 
-(defrule left-ws (and (< 1 #\Newline) (+ (or #\Space #\Tab)) (& (and "{%" (? "+"))))
+(defrule left-ws (and (< 1 #\Newline)
+		      (+ (or #\Space #\Tab))
+		      (& (and (or "{%" "{#")
+			      (? "+"))))
   (:lambda (l)
     (list (if (second (third l)) :left-ws+ :left-ws) (text (second l)))))
 
-(defrule first-left-ws (and (+ (or #\Space #\Tab)) (& (and "{%" (? "+"))))
+(defrule first-left-ws (and
+			(+ (or #\Space #\Tab))
+			(& (and (or "{%" "{#")
+				(? "+"))))
   (:lambda (l)
     (list (if (second (second l)) :left-ws+ :left-ws) (text (first l)))))
 
