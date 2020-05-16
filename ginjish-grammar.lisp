@@ -147,6 +147,9 @@
 (defrule name (and id-start (* id-cont))
   (:text t))
 
+(defrule extended-name (and name (* (and "." name)))
+  (:text t))
+
 (defrule identifier (and id-start (* id-cont)) ; FIXME load and store identifiers?
   (:lambda (i)
     (let ((s (text i)))
@@ -327,7 +330,7 @@
     (when f
       `(:filter ,@(mapcar #'second f)))))
 
-(defrule filter-call (and name (? (and (and "(" ws*) (? mixed-argument-list) (and ws* ")"))))
+(defrule filter-call (and extended-name (? (and (and "(" ws*) (? mixed-argument-list) (and ws* ")"))))
   (:lambda (c)
     (list (first c) (second (second c)))))
 
@@ -335,7 +338,7 @@
   (:lambda (e)
     `(,(if (second (second e)) :test-not :test) ,(fourth e))))
 
-(defrule test-call (and name (? (or test-multiple-argument test-single-argument)))
+(defrule test-call (and extended-name (? (or test-multiple-argument test-single-argument)))
   (:lambda (c)
     (list (first c) (second c))))
 
