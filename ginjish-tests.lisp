@@ -1031,8 +1031,61 @@ hello
       (if-test-helper "{{ foo|first }}"
 		      (list 'foo (alexandria:iota 10)))))
 
+(define-test filters-float
+  :parent filters
+  (is string=
+      "42.0"
+      (if-test-helper "{{ value|float }}" (list 'value "42")))
+  (is string=
+      "0.0"
+      (if-test-helper "{{ value|float }}" (list 'value "abc")))
+  (is string=
+      "32.32"
+      (if-test-helper "{{ value|float }}" (list 'value "32.32"))))
 
-      
+(define-test filters-float-default
+  :parent filters
+  (is string=
+      "1.0"
+      (if-test-helper "{{ value|float(1.0) }}" (list 'value "abc"))))
+
+(define-test filters-format ; FIXME this is CL:FORMAT
+  :parent filters
+  (is string=
+      "a|b"
+      (if-test-helper "{{ '~A|~A'|format('a', 'b') }}")))
+
+(define-test filters-indent-multiline-template
+  :parent filters
+  (is string=
+      #?"\n  foo bar\n  \"baz\"\n"
+      (if-test-helper "{{ foo|indent(width=2) }}"
+		      (list 'foo #?"\nfoo bar\n\"baz\"\n")))
+  (is string=
+      #?"  \n  foo bar\n  \"baz\"\n"
+      (if-test-helper "{{ foo|indent(width=2, first=true) }}"
+		      (list 'foo #?"\nfoo bar\n\"baz\"\n")))
+  (is string=
+      #?"\n  foo bar\n  \"baz\"\n  "
+      (if-test-helper "{{ foo|indent(width=2, blank=true) }}"
+		      (list 'foo #?"\nfoo bar\n\"baz\"\n")))
+  (is string=
+      #?"  \n  foo bar\n  \"baz\"\n  "
+      (if-test-helper "{{ foo|indent(width=2, blank=true, first=true) }}"
+		      (list 'foo #?"\nfoo bar\n\"baz\"\n"))))
+
+(define-test filters-indent
+  :parent filters
+  (is string=
+      "jinja"
+      (if-test-helper "{{ 'jinja'|indent }}"))
+  (is string=
+      "    jinja"
+      (if-test-helper "{{ 'jinja'|indent(first=true) }}"))
+  (is string=
+      "jinja"
+      (if-test-helper "{{ 'jinja'|indent(blank=true) }}")))
+
 ;;; builtins
 
 (define-test builtins)

@@ -155,6 +155,8 @@
 
 ;;; literals
 
+(defrule number (or floatnumber integer)) ; used in filters float
+
 (defrule literal (or stringliteral floatnumber integer))
 
 ;;; expression

@@ -248,11 +248,13 @@ tojson
 (define-filter first (seq)
   (elt seq 0))
 
-(defun do-float (n &optional (default 0.0))
+(defun do-float (n &optional (default 0.0d0))
   (handler-bind ((type-error
 		  #'(lambda (condition)
 		      (declare (ignore condition))
 		      (return-from do-float default))))
+    (when (stringp n)
+      (setf n (esrap:parse 'ginjish-grammar::number n :junk-allowed t)))
     (float n 0d0))) ; FIXME double?
 
 (define-filter float (n &optional (default 0.0))
@@ -266,6 +268,22 @@ tojson
 
 (define-filter format (s &rest format-arguments)
   (do-format s format-arguments))
+
+(defun do-indent (s &optional (width 4) first blank)
+  (let ((lines (split-sequence:split-sequence #\Newline s))
+	(padding (make-string width :initial-element #\Space)))
+    (loop for line in lines
+       for firstline = t then nil
+       if (and firstline (not first))
+       collect line into results
+       else if (and (serapeum:blankp line) (not blank) (not firstline))
+       collect line into results
+       else
+       collect (concatenate 'string padding line) into results
+	 finally (return (serapeum:string-join results #\Newline)))))
+
+(define-filter indent (s &key (width 4) first blank)
+  (do-indent s width first blank))
 
 (define-filter length (seq)
   (length seq))
