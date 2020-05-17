@@ -464,39 +464,131 @@
 
 ;;; template
 
-(defrule t-statement-start (and "{%" (? (or "+" "-"))))
+(defmacro with-delimiters ((block-start-string
+			   block-end-string
+			   variable-start-string
+			   variable-end-string
+			   comment-start-string
+			   comment-end-string)
+			   &body body)
+  (let ((old-block-start (gensym "OLD-BLOCK-START"))
+	(old-block-end (gensym "OLD-BLOCK-END"))
+	(old-variable-start (gensym "OLD-VARIABLE-START"))
+	(old-variable-end (gensym "OLD-VARIABLE-END"))
+	(old-comment-start (gensym "OLD-COMMENT-START"))
+	(old-comment-end (gensym "OLD-COMMENT-END"))
+	(old-trailing-ws (gensym "OLD-TRAILING-WS"))
+	(old-right-newline (gensym "OLD-RIGHT-NEWLINE")))
+    `(let ((,old-block-start (rule-expression
+			      (find-rule 'block-start-string)))
+	   (,old-block-end (rule-expression
+			    (find-rule 'block-end-string)))
+	   (,old-variable-start (rule-expression
+				 (find-rule 'variable-start-string)))
+	   (,old-variable-end (rule-expression
+			       (find-rule 'variable-end-string)))
+	   (,old-comment-start (rule-expression
+				(find-rule 'comment-start-string)))
+	   (,old-comment-end (rule-expression
+			      (find-rule 'comment-end-string)))
+	   (,old-trailing-ws (rule-expression
+			      (find-rule 'trailing-ws)))
+	   (,old-right-newline (rule-expression
+				(find-rule 'right-newline))))
+       (unwind-protect
+	    (progn
+	      (change-rule 'block-start-string ,block-start-string)
+	      (change-rule 'block-end-string ,block-end-string)
+	      (change-rule 'variable-start-string ,variable-start-string)
+	      (change-rule 'variable-end-string ,variable-end-string)
+	      (change-rule 'comment-start-string ,comment-start-string)
+	      (change-rule 'comment-end-string , comment-end-string)
+	      (change-rule 'trailing-ws ',(make-trailing-ws-expression
+					   block-end-string
+					   variable-end-string
+					   comment-end-string))
+	      (change-rule 'right-newline ',(make-right-newline-expression
+					     block-end-string))
+	      ,@body)
+	 (change-rule 'block-start-string ,old-block-start)
+	 (change-rule 'block-end-string ,old-block-end)
+	 (change-rule 'variable-start-string ,old-variable-start)
+	 (change-rule 'variable-end-string ,old-variable-end)
+	 (change-rule 'comment-start-string ,old-comment-start)
+	 (change-rule 'comment-end-string ,old-comment-end)
+	 (change-rule 'trailing-ws ,old-trailing-ws)
+	 (change-rule 'right-newline ,old-right-newline)))))
 
-(defrule t-statement-end (and (? "-") "%}"))
+  
+(defrule block-start-string "{%")
 
-(defrule t-expression-start (and "{{" (? "-")))
+(defrule block-end-string "%}")
 
-(defrule t-expression-end (and (? "-") "}}"))
+(defrule variable-start-string "{{")
 
-(defrule t-comment-start (and "{#" (? "-")))
+(defrule variable-end-string "}}")
 
-(defrule t-comment-end (and (? "-") "#}"))
+(defrule comment-start-string "{#")
 
-(defrule trailing-ws (and (< 3 (and "-" (or "%" "}" "#") "}")) ws)
+(defrule comment-end-string "#}")
+
+(defrule t-statement-start (and block-start-string
+				(? (or "+" "-"))))
+
+(defrule t-statement-end (and (? "-")
+			      block-end-string))
+
+(defrule t-expression-start (and variable-start-string
+				 (? "-")))
+
+(defrule t-expression-end (and (? "-")
+			       variable-end-string))
+
+(defrule t-comment-start (and comment-start-string
+			      (? "-")))
+
+(defrule t-comment-end (and (? "-")
+			    comment-end-string))
+
+(defun make-trailing-ws-expression (block-end-string variable-end-string comment-end-string)
+  `(and (or (< ,(1+ (length block-end-string)) (and "-" block-end-string))
+	    (< ,(1+ (length variable-end-string)) (and "-" variable-end-string))
+	    (< ,(1+ (length comment-end-string)) (and "-" comment-end-string)))
+	ws))
+
+(defrule trailing-ws (and
+		      (or (< 3 (and "-" block-end-string))
+			  (< 3 (and "-" variable-end-string))
+			  (< 3 (and "-" comment-end-string)))
+		      ws)
   (:lambda (w)
     (list :trailing-ws (text (second w)))))
 
-(defrule leading-ws (and ws (& (and "{" (or "%" "{" "#") "-")))
+(defrule leading-ws (and ws (& (and (or block-start-string
+					variable-start-string
+					comment-start-string)
+				    "-")))
   (:lambda (w)
     (list :leading-ws (text (first w)))))
 
-(defrule right-newline (and (< 2 t-statement-end) #\Newline)
+(defun make-right-newline-expression (block-end-string)
+  `(and (< ,(length block-end-string) #\Newline)))
+
+(defrule right-newline (and (< 2 block-end-string) #\Newline)
   (:constant (list :right-newline)))
 
 (defrule left-ws (and (< 1 #\Newline)
 		      (+ (or #\Space #\Tab))
-		      (& (and (or "{%" "{#")
+		      (& (and (or block-start-string
+				  comment-start-string)
 			      (? "+"))))
   (:lambda (l)
     (list (if (second (third l)) :left-ws+ :left-ws) (text (second l)))))
 
 (defrule first-left-ws (and
 			(+ (or #\Space #\Tab))
-			(& (and (or "{%" "{#")
+			(& (and (or block-start-string
+				    comment-start-string)
 				(? "+"))))
   (:lambda (l)
     (list (if (second (second l)) :left-ws+ :left-ws) (text (first l)))))

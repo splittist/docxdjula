@@ -816,7 +816,98 @@
 hello
     {#endif#}"))))
 
+(define-test lstrip-angle-bracket-simple
+  :parent lstrip-blocks
+  (is string=
+      "hello    "
+      (ginjish-grammar::with-delimiters
+	  ("<%" "%>" "${" "}" "<%#" "%>")
+	(let ((ginjish-compiler::*lstrip-blocks* t)
+	      (ginjish-compiler::*trim-blocks* t))
+	  (if-test-helper "    <% if True %>hello    <% endif %>")))))
 
+(define-test lstrip-angle-bracket-comment
+  :parent lstrip-blocks
+  (is string=
+      "hello    "
+      (ginjish-grammar::with-delimiters
+	  ("<%" "%>" "${" "}" "<%#" "%>")
+	(let ((ginjish-compiler::*lstrip-blocks* t)
+	      (ginjish-compiler::*trim-blocks* t))
+	  (if-test-helper "    <%# if True %>hello    <%# endif %>")))))
+
+(define-test lstrip-php-syntax-with-manual
+  :parent lstrip-blocks
+  (is string=
+      "01234"
+      (ginjish-grammar::with-delimiters
+	  ("<?" "?>" "<?=" "?>" "<!--" "-->")
+	(let ((ginjish-compiler::*lstrip-blocks* t)
+	      (ginjish-compiler::*trim-blocks* t))
+	  (if-test-helper "<!-- I'm a comment, I'm not interesting -->
+    <? for item in seq -?>
+        <?= item ?>
+    <?- endfor ?>"
+			  (list 'seq (alexandria:iota 5)))))))
+
+(define-test lstrip-erb-syntax-with-manual
+  :parent lstrip-blocks
+  (is string=
+      "01234"
+      (ginjish-grammar::with-delimiters
+	  ("<%" "%>" "<%=" "%>" "<%#" "%>")
+	(let ((ginjish-compiler::*lstrip-blocks* t)
+	      (ginjish-compiler::*trim-blocks* t))
+	  (if-test-helper "<%# I'm a comment, I'm not interesting -%>
+    <% for item in seq -%>
+        <%= item %>
+    <%- endfor %>"
+			  (list 'seq (alexandria:iota 5)))))))
+
+(define-test lstrip-blocks-outside-with-new-line
+  :parent lstrip-blocks
+  (is string=
+      #?"(\na=1 b=2 \n  )"
+      (let ((ginjish-compiler::*lstrip-blocks* t)
+	    (ginjish-compiler::*trim-blocks* nil))
+	(if-test-helper #?"  {% if kvs %}(\n   {% for k, v in kvs %}{{ k }}={{ v }} {% endfor %}\n  ){% endif %}"
+			(list 'kvs '(("a"  1) ("b"  2)))))))
+
+(define-test lstrip-trim-blocks-outside-with-new-line
+  :parent lstrip-blocks
+  (is string=
+      #?"(\na=1 b=2   )"
+      (let ((ginjish-compiler::*lstrip-blocks* t)
+	    (ginjish-compiler::*trim-blocks* t))
+	(if-test-helper #?"  {% if kvs %}(\n   {% for k, v in kvs %}{{ k }}={{ v }} {% endfor %}\n  ){% endif %}"
+			(list 'kvs '(("a"  1) ("b"  2)))))))
+
+(define-test lstrip-blocks-inside-with-new-line
+  :parent lstrip-blocks
+  (is string=
+      #?"  (\na=1 b=2 \n)"
+      (let ((ginjish-compiler::*lstrip-blocks* t)
+	    (ginjish-compiler::*trim-blocks* nil))
+	(if-test-helper #?"  ({% if kvs %}\n   {% for k, v in kvs %}{{ k }}={{ v }} {% endfor %}\n  {% endif %})"
+			(list 'kvs '(("a"  1) ("b"  2)))))))
+
+(define-test lstrip-trim-blocks-inside-with-new-line
+  :parent lstrip-blocks
+  (is string=
+      #?"  (a=1 b=2 )"
+      (let ((ginjish-compiler::*lstrip-blocks* t)
+	    (ginjish-compiler::*trim-blocks* t))
+	(if-test-helper #?"  ({% if kvs %}\n   {% for k, v in kvs %}{{ k }}={{ v }} {% endfor %}\n  {% endif %})"
+			(list 'kvs '(("a"  1) ("b"  2)))))))
+
+(define-test lstrip-blocks-without-new-line
+  :parent lstrip-blocks
+  (is string=
+      "   a=1 b=2   "
+      (let ((ginjish-compiler::*lstrip-blocks* t)
+	    (ginjish-compiler::*trim-blocks* nil))
+	(if-test-helper "  {% if kvs %}   {% for k, v in kvs %}{{ k }}={{ v }} {% endfor %}  {% endif %}"
+			(list 'kvs '(("a"  1) ("b"  2)))))))
 
 (cl-interpol:disable-interpol-syntax)
        
