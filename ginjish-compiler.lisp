@@ -708,7 +708,7 @@
                   finally (return triggered)))
           (and else (funcall else stream))))))
 
-(defmethod compile-tagged-element ((tag (eql :assign)) rest)
+(defmethod compile-tagged-element ((tag (eql :assign)) rest) ; FIXME save in compilation environment for exporting
   (let ((expr (compile-element (second rest)))
         (targets (first rest)))
     (if (= 1 (length targets))
@@ -720,6 +720,20 @@
             (dotimes (index (length targets))
               (setf (load-value *context* (elt targets index))
                     (elt seq index))))))))
+
+(defmethod compile-tagged-element ((tag (eql :block-set)) rest) ; FIXME save in compilation environment for exporting
+  (let ((target (first rest))
+        (filter (loop for (name  args) in (rest (second rest))
+                     collect (list name (mapcar #'compile-element args))))
+        (suite (compile-element (third rest))))
+    (alexandria:named-lambda :block-set (stream)
+      (setf (load-value *context* target)
+            (apply-filters
+             (lambda (stream)
+               (declare (ignore stream))
+               (with-output-to-string (s)
+                 (funcall suite s)))
+             filter stream)))))
 
 (defmethod compile-tagged-element ((tag (eql :with)) rest)
   (let ((assignments
@@ -806,6 +820,8 @@
                        ;; depth depth0 cycle
                          (load-targets this)
                          (funcall body stream)))))))))))
+
+
 
 #|
 
