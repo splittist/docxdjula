@@ -301,7 +301,7 @@
   (let ((ginjish-compiler::*context* env))
     (with-output-to-string (s)
       (funcall (ginjish-compiler::compile-element
-                (esrap:parse 'ginjish-grammar::suite
+                (esrap:parse 'ginjish-grammar::template
                              string))
                s))))
 

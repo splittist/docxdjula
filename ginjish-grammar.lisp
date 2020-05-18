@@ -504,7 +504,7 @@
               (change-rule 'variable-start-string ,variable-start-string)
               (change-rule 'variable-end-string ,variable-end-string)
               (change-rule 'comment-start-string ,comment-start-string)
-              (change-rule 'comment-end-string , comment-end-string)
+              (change-rule 'comment-end-string ,comment-end-string)
               (change-rule 'trailing-ws ',(make-trailing-ws-expression
                                            block-end-string
                                            variable-end-string
@@ -603,14 +603,17 @@
   (:lambda (n)
     (list :newlines (length n))))
 
-(defrule suite (and (? first-left-ws)
-                    (* (or leading-ws trailing-ws
-                           right-newline left-ws
-                           t-statement t-expression t-comment
-                           matter
-                           newlines)))
+(defrule suite (* (or leading-ws trailing-ws
+                      right-newline left-ws
+                      t-statement t-expression t-comment
+                      matter
+                      newlines))
   (:lambda (s)
-    `(:suite ,@(serapeum:unsplice (first s)) ,@(second s))))
+    `(:suite ,@s)))
+
+(defrule template (and (? first-left-ws) suite)
+  (:lambda (s)
+    `(:template ,@(serapeum:unsplice (first s)) ,(second s))))
 
 ;;; t-comment
 

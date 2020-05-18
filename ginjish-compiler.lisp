@@ -237,6 +237,12 @@
       (dolist (element contents)
         (funcall element stream)))))
 
+(defmethod compile-tagged-element ((tag (eql :template)) rest)
+  (let ((contents (mapcar #'compile-element rest)))
+    (alexandria:named-lambda :template (stream)
+      (dolist (element contents)
+        (funcall element stream)))))
+
 (defmethod compile-tagged-element ((tag (eql :string)) rest)
   (constantly (first rest)))
 
