@@ -23,20 +23,20 @@
 (defrule singlequote-string-char (or (not-singlequote character) (and #\\ #\')))
 
 (defrule stringliteral (and (or doublequote-string singlequote-string)
-			    (* (and ws (or doublequote-string singlequote-string))))
+                            (* (and ws (or doublequote-string singlequote-string))))
   (:lambda (s)
     (let ((strings (list* (first s) (mapcar #'second (second s)))))
       `(:string ,(apply #'concatenate 'string strings)))))
 
 (defrule doublequote-string (and #\" (* doublequote-string-char) #\")
   (:destructure (q1 string q2)
-		(declare (ignore q1 q2))
-		(text string)))
+                (declare (ignore q1 q2))
+                (text string)))
 
 (defrule singlequote-string (and #\' (* singlequote-string-char) #\')
   (:destructure (q1 string q2)
-		(declare (ignore q1 q2))
-		(text string)))
+                (declare (ignore q1 q2))
+                (text string)))
 
 
 ;;; numbers
@@ -85,7 +85,7 @@
   (:destructure (first rest)
     (push first rest)
     (let* ((digits (strip-underlines rest))
-	   (length (length digits)))
+           (length (length digits)))
       (cons
        (parse-integer (text (strip-underlines rest)) :radix 10)
        length))))
@@ -148,10 +148,10 @@
   (:lambda (i)
     (let ((s (text i)))
       (serapeum:string-case s
-	(("true" "True") t)
-	(("false" "False") nil)
-	(("none" "None") nil) ; FIXME is this right?
-	(t `(:identifier ,s))))))
+        (("true" "True") t)
+        (("false" "False") nil)
+        (("none" "None") nil) ; FIXME is this right?
+        (t `(:identifier ,s))))))
 
 ;;; literals
 
@@ -164,15 +164,15 @@
 (defrule expression conditional-expression)
 
 (defrule conditional-expression (and or-test
-				     (? (and (and ws "if" ws)
-					     or-test
-					     (? (and
-						 (and ws "else" ws)
-						 expression)))))
+                                     (? (and (and ws "if" ws)
+                                             or-test
+                                             (? (and
+                                                 (and ws "else" ws)
+                                                 expression)))))
   (:lambda (c)
-	   (if (second c)
-	       `(:if-expr ,(second (second c)) ,(first c) ,(second (third (second c))))
-	       (first c))))
+           (if (second c)
+               `(:if-expr ,(second (second c)) ,(first c) ,(second (third (second c))))
+               (first c))))
 
 (defrule or-test (or or-test-sub and-test))
 
@@ -195,11 +195,11 @@
 (defun chain-comparisons (c)
   `(:and
     ,@(loop for left = (first c) then right
-	 for (nil op nil right) in (second c)
-	 collecting (list op left right))))
+         for (nil op nil right) in (second c)
+         collecting (list op left right))))
 
 (defrule comparison (and #+(or)or-expr a-expr
-			 (* (and ws* comp-operator ws* #+(or)or-expr a-expr)))
+                         (* (and ws* comp-operator ws* #+(or)or-expr a-expr)))
   (:lambda (c)
     (case (length (second c))
       (0 (first c))
@@ -207,18 +207,18 @@
       (t (chain-comparisons c)))))
 
 #+(or)(defrule comp-operator (or ">=" "<=" "!=" "<" ">" "=="
-			   (and "is" (? (and ws "not")))
-			   (and (? (and "not" ws)) "in"))
+                           (and "is" (? (and ws "not")))
+                           (and (? (and "not" ws)) "in"))
   (:lambda (c)
     (if (consp c)
-	(if (equal "is" (first c))
-	    (if (equal "not" (second (second c)))
-		:is-not
-		:is)
-	    (if (equal "not" (first (first c)))
-		:not-in
-		:in))
-	(alexandria:make-keyword c))))
+        (if (equal "is" (first c))
+            (if (equal "not" (second (second c)))
+                :is-not
+                :is)
+            (if (equal "not" (first (first c)))
+                :not-in
+                :in))
+        (alexandria:make-keyword c))))
 
 (defun c-op->lisp (op)
   (serapeum:string-case op
@@ -233,7 +233,7 @@
     (t (error "c-op->lisp got: ~S" op))))
 
 (defrule comp-operator (or ">=" "<=" "!=" "<" ">" "=="
-			   not-in)
+                           not-in)
   (:function c-op->lisp))
 
 (defrule not-in (and (? (and "not" ws)) "in")
@@ -269,7 +269,7 @@
 (defrule a-expr (or a-expr-sub #+(or)m-expr concat-expr))
 
 (defrule a-expr-sub (or (and a-expr ws* "+" ws* #+(or)m-expr concat-expr)
-			(and a-expr ws* "-" ws* #+(or)m-expr concat-expr))
+                        (and a-expr ws* "-" ws* #+(or)m-expr concat-expr))
   (:lambda (a)
     (list (serapeum:string-case (third a) (("+") :plus) (("-") :minus)) (first a) (fifth a))))
 
@@ -290,10 +290,10 @@
     (t (error "m-op->lisp got: ~S" op))))
 
 (defrule m-expr-sub (or (and m-expr ws* "*" ws* u-expr)
-			#+(or)(and m-expr ws* "@" ws* u-expr)
-			(and m-expr ws* "//" ws* u-expr)
-			(and m-expr ws* "/" ws* u-expr)
-			(and m-expr ws* "%" ws* u-expr))
+                        #+(or)(and m-expr ws* "@" ws* u-expr)
+                        (and m-expr ws* "//" ws* u-expr)
+                        (and m-expr ws* "/" ws* u-expr)
+                        (and m-expr ws* "%" ws* u-expr))
   (:lambda (m)
     (list (m-op->lisp (third m)) (first m) (fifth m))))
 
@@ -302,22 +302,22 @@
 (defrule u-expr (or u-expr-sub power))
 
 (defrule u-expr-sub (or (and "-" ws* u-expr)
-			(and "+" ws* u-expr)
-			#+(or)(and "~" ws* u-expr)) ;; Jinja "~" is binary string concat
+                        (and "+" ws* u-expr)
+                        #+(or)(and "~" ws* u-expr)) ;; Jinja "~" is binary string concat
   (:lambda (u)
     (list (serapeum:string-case (first u) (("+") :uplus) (("-") :uminus)) (third u))))
 
 (defrule power (and filtered-primary (? (and ws* "**" ws* u-expr)))
   (:lambda (p)
     (if (null (second p))
-	(first p)
-	(list :pow (first p) (fourth (second p))))))
+        (first p)
+        (list :pow (first p) (fourth (second p))))))
 
 (defrule filtered-primary (and primary (? filter-expr))
   (:lambda (f)
-	   (if (second f)
-	       `(,(first (second f)) ,(first f) ,@(rest (second f)))
-	       (first f))))
+           (if (second f)
+               `(,(first (second f)) ,(first f) ,@(rest (second f)))
+               (first f))))
 
 (defrule filter-expr (or test-expr filters))
 
@@ -358,10 +358,10 @@
   (:lambda (e)
     (case (length (second e))
       (0 (if (third e)
-	     `(:tuple ,(first e))
-	     (first e)))
+             `(:tuple ,(first e))
+             (first e)))
       (t (let ((elements (mapcar #'fourth (second e))))
-	   `(:tuple ,(first e) ,@elements)))))) 
+           `(:tuple ,(first e) ,@elements)))))) 
 
 (defrule expression-list* (and expression (* (and ws* "," ws* expression)) (? (and ws* ",")))
   (:lambda (e)
@@ -416,7 +416,7 @@
 
 #|
 (defrule argument-list (or keywords-arguments ; FIXME this doesn't seem to work
-			   (and positional-arguments (? (and ws* "," keywords-arguments))))
+                           (and positional-arguments (? (and ws* "," keywords-arguments))))
   )
 
 (defrule argument-list (and (? positional-arguments) (? (and ws* "," keywords-arguments))))
@@ -438,7 +438,7 @@
 (defun read-keyword (string)
   (serapeum:with-standard-input-syntax
     (let ((*package* (find-package :keyword))
-	  (*read-eval* nil))
+          (*read-eval* nil))
       (read-from-string string))))
 
 (defrule keyword-item (and name  ws* "=" ws* expression)
@@ -453,10 +453,10 @@
   (:lambda (e)
     (case (length (second e))
       (0 (if (third e)
-	     `(:tuple ,(first e))
-	     (first e)))
+             `(:tuple ,(first e))
+             (first e)))
       (t (let ((elements (mapcar #'fourth (second e))))
-	   `(:tuple ,(first e) ,@elements))))))
+           `(:tuple ,(first e) ,@elements))))))
 
 (defrule slice-item (or proper-slice expression))
 
@@ -467,59 +467,59 @@
 ;;; template
 
 (defmacro with-delimiters ((block-start-string
-			   block-end-string
-			   variable-start-string
-			   variable-end-string
-			   comment-start-string
-			   comment-end-string)
-			   &body body)
+                           block-end-string
+                           variable-start-string
+                           variable-end-string
+                           comment-start-string
+                           comment-end-string)
+                           &body body)
   (let ((old-block-start (gensym "OLD-BLOCK-START"))
-	(old-block-end (gensym "OLD-BLOCK-END"))
-	(old-variable-start (gensym "OLD-VARIABLE-START"))
-	(old-variable-end (gensym "OLD-VARIABLE-END"))
-	(old-comment-start (gensym "OLD-COMMENT-START"))
-	(old-comment-end (gensym "OLD-COMMENT-END"))
-	(old-trailing-ws (gensym "OLD-TRAILING-WS"))
-	(old-right-newline (gensym "OLD-RIGHT-NEWLINE")))
+        (old-block-end (gensym "OLD-BLOCK-END"))
+        (old-variable-start (gensym "OLD-VARIABLE-START"))
+        (old-variable-end (gensym "OLD-VARIABLE-END"))
+        (old-comment-start (gensym "OLD-COMMENT-START"))
+        (old-comment-end (gensym "OLD-COMMENT-END"))
+        (old-trailing-ws (gensym "OLD-TRAILING-WS"))
+        (old-right-newline (gensym "OLD-RIGHT-NEWLINE")))
     `(let ((,old-block-start (rule-expression
-			      (find-rule 'block-start-string)))
-	   (,old-block-end (rule-expression
-			    (find-rule 'block-end-string)))
-	   (,old-variable-start (rule-expression
-				 (find-rule 'variable-start-string)))
-	   (,old-variable-end (rule-expression
-			       (find-rule 'variable-end-string)))
-	   (,old-comment-start (rule-expression
-				(find-rule 'comment-start-string)))
-	   (,old-comment-end (rule-expression
-			      (find-rule 'comment-end-string)))
-	   (,old-trailing-ws (rule-expression
-			      (find-rule 'trailing-ws)))
-	   (,old-right-newline (rule-expression
-				(find-rule 'right-newline))))
+                              (find-rule 'block-start-string)))
+           (,old-block-end (rule-expression
+                            (find-rule 'block-end-string)))
+           (,old-variable-start (rule-expression
+                                 (find-rule 'variable-start-string)))
+           (,old-variable-end (rule-expression
+                               (find-rule 'variable-end-string)))
+           (,old-comment-start (rule-expression
+                                (find-rule 'comment-start-string)))
+           (,old-comment-end (rule-expression
+                              (find-rule 'comment-end-string)))
+           (,old-trailing-ws (rule-expression
+                              (find-rule 'trailing-ws)))
+           (,old-right-newline (rule-expression
+                                (find-rule 'right-newline))))
        (unwind-protect
-	    (progn
-	      (change-rule 'block-start-string ,block-start-string)
-	      (change-rule 'block-end-string ,block-end-string)
-	      (change-rule 'variable-start-string ,variable-start-string)
-	      (change-rule 'variable-end-string ,variable-end-string)
-	      (change-rule 'comment-start-string ,comment-start-string)
-	      (change-rule 'comment-end-string , comment-end-string)
-	      (change-rule 'trailing-ws ',(make-trailing-ws-expression
-					   block-end-string
-					   variable-end-string
-					   comment-end-string))
-	      (change-rule 'right-newline ',(make-right-newline-expression
-					     block-end-string))
-	      ,@body)
-	 (change-rule 'block-start-string ,old-block-start)
-	 (change-rule 'block-end-string ,old-block-end)
-	 (change-rule 'variable-start-string ,old-variable-start)
-	 (change-rule 'variable-end-string ,old-variable-end)
-	 (change-rule 'comment-start-string ,old-comment-start)
-	 (change-rule 'comment-end-string ,old-comment-end)
-	 (change-rule 'trailing-ws ,old-trailing-ws)
-	 (change-rule 'right-newline ,old-right-newline)))))
+            (progn
+              (change-rule 'block-start-string ,block-start-string)
+              (change-rule 'block-end-string ,block-end-string)
+              (change-rule 'variable-start-string ,variable-start-string)
+              (change-rule 'variable-end-string ,variable-end-string)
+              (change-rule 'comment-start-string ,comment-start-string)
+              (change-rule 'comment-end-string , comment-end-string)
+              (change-rule 'trailing-ws ',(make-trailing-ws-expression
+                                           block-end-string
+                                           variable-end-string
+                                           comment-end-string))
+              (change-rule 'right-newline ',(make-right-newline-expression
+                                             block-end-string))
+              ,@body)
+         (change-rule 'block-start-string ,old-block-start)
+         (change-rule 'block-end-string ,old-block-end)
+         (change-rule 'variable-start-string ,old-variable-start)
+         (change-rule 'variable-end-string ,old-variable-end)
+         (change-rule 'comment-start-string ,old-comment-start)
+         (change-rule 'comment-end-string ,old-comment-end)
+         (change-rule 'trailing-ws ,old-trailing-ws)
+         (change-rule 'right-newline ,old-right-newline)))))
 
   
 (defrule block-start-string "{%")
@@ -535,41 +535,41 @@
 (defrule comment-end-string "#}")
 
 (defrule t-statement-start (and block-start-string
-				(? (or "+" "-"))))
+                                (? (or "+" "-"))))
 
 (defrule t-statement-end (and (? "-")
-			      block-end-string))
+                              block-end-string))
 
 (defrule t-expression-start (and variable-start-string
-				 (? "-")))
+                                 (? "-")))
 
 (defrule t-expression-end (and (? "-")
-			       variable-end-string))
+                               variable-end-string))
 
 (defrule t-comment-start (and comment-start-string
-			      (? "-")))
+                              (? "-")))
 
 (defrule t-comment-end (and (? "-")
-			    comment-end-string))
+                            comment-end-string))
 
 (defun make-trailing-ws-expression (block-end-string variable-end-string comment-end-string)
   `(and (or (< ,(1+ (length block-end-string)) (and "-" block-end-string))
-	    (< ,(1+ (length variable-end-string)) (and "-" variable-end-string))
-	    (< ,(1+ (length comment-end-string)) (and "-" comment-end-string)))
-	ws))
+            (< ,(1+ (length variable-end-string)) (and "-" variable-end-string))
+            (< ,(1+ (length comment-end-string)) (and "-" comment-end-string)))
+        ws))
 
 (defrule trailing-ws (and
-		      (or (< 3 (and "-" block-end-string))
-			  (< 3 (and "-" variable-end-string))
-			  (< 3 (and "-" comment-end-string)))
-		      ws)
+                      (or (< 3 (and "-" block-end-string))
+                          (< 3 (and "-" variable-end-string))
+                          (< 3 (and "-" comment-end-string)))
+                      ws)
   (:lambda (w)
     (list :trailing-ws (text (second w)))))
 
 (defrule leading-ws (and ws (& (and (or block-start-string
-					variable-start-string
-					comment-start-string)
-				    "-")))
+                                        variable-start-string
+                                        comment-start-string)
+                                    "-")))
   (:lambda (w)
     (list :leading-ws (text (first w)))))
 
@@ -580,18 +580,18 @@
   (:constant (list :right-newline)))
 
 (defrule left-ws (and (< 1 #\Newline)
-		      (+ (or #\Space #\Tab))
-		      (& (and (or block-start-string
-				  comment-start-string)
-			      (? "+"))))
+                      (+ (or #\Space #\Tab))
+                      (& (and (or block-start-string
+                                  comment-start-string)
+                              (? "+"))))
   (:lambda (l)
     (list (if (second (third l)) :left-ws+ :left-ws) (text (second l)))))
 
 (defrule first-left-ws (and
-			(+ (or #\Space #\Tab))
-			(& (and (or block-start-string
-				    comment-start-string)
-				(? "+"))))
+                        (+ (or #\Space #\Tab))
+                        (& (and (or block-start-string
+                                    comment-start-string)
+                                (? "+"))))
   (:lambda (l)
     (list (if (second (second l)) :left-ws+ :left-ws) (text (first l)))))
 
@@ -604,11 +604,11 @@
     (list :newlines (length n))))
 
 (defrule suite (and (? first-left-ws)
-		    (* (or leading-ws trailing-ws
-			   right-newline left-ws
-			   t-statement t-expression t-comment
-			   matter
-			   newlines)))
+                    (* (or leading-ws trailing-ws
+                           right-newline left-ws
+                           t-statement t-expression t-comment
+                           matter
+                           newlines)))
   (:lambda (s)
     `(:suite ,@(serapeum:unsplice (first s)) ,@(second s))))
 
@@ -622,20 +622,20 @@
 ;;; t-statement
 
 (defrule t-statement (or
-		      t-raw
-		      t-for
-		      t-if
-		      t-block
-		      t-extends
-		      t-filter
-		      t-include
-		      t-import
-		      t-from
-		      t-with
-		      t-autoescape
-		      t-set-block
-		      t-set
-		      ))
+                      t-raw
+                      t-for
+                      t-if
+                      t-block
+                      t-extends
+                      t-filter
+                      t-include
+                      t-import
+                      t-from
+                      t-with
+                      t-autoescape
+                      t-set-block
+                      t-set
+                      ))
 
 (defrule t-raw (and t-raw-start raw-content t-raw-end)
   (:lambda (r)
@@ -661,13 +661,13 @@
   (:lambda (e)
     (case (length (second e))
       (0 (if (third e)
-	     `(:tuple ,(first e))
-	     (first e)))
+             `(:tuple ,(first e))
+             (first e)))
       (t (let ((elements (mapcar #'fourth (second e))))
-	   `(:tuple ,(first e) ,@elements))))))
+           `(:tuple ,(first e) ,@elements))))))
 
 (defrule t-for-start (and (and t-statement-start ws* "for" ws) target-list (and ws "in" ws) for-expression-list
-			  (? for-filter-expr) (? (and ws* "recursive")) (and ws* t-statement-end))
+                          (? for-filter-expr) (? (and ws* "recursive")) (and ws* t-statement-end))
   (:destructure (for-keyword target-list in-keyword expression-list filter recursive &rest end)
     (declare (ignore for-keyword in-keyword end))
     (list target-list expression-list filter recursive)))
@@ -686,11 +686,11 @@
     `(,(first l) ,@(mapcar #'fourth (second l)))))
 
 (defrule target (or tuple-target
-		    list-target
-		    #+(or)attributeref
-		    #+(or)subscription
-		    #+(or)slicing
-		    #+(or)identifier name))
+                    list-target
+                    #+(or)attributeref
+                    #+(or)subscription
+                    #+(or)slicing
+                    #+(or)identifier name))
 
 (defrule tuple-target (and "(" ws* (? target-list) ws* ")")
   (:lambda (e)
@@ -733,18 +733,18 @@ if_stmt ::=  "if" assignment_expression ":" suite
     (list :block name scoped suite)))
 
 (defrule t-block-start (and
-			(and t-statement-start ws* "block" ws)
-			name
-			(? (and ws "scoped"))
-			(and ws* t-statement-end))
+                        (and t-statement-start ws* "block" ws)
+                        name
+                        (? (and ws "scoped"))
+                        (and ws* t-statement-end))
   (:destructure (start name scoped end)
     (declare (ignore start end))
     (list name (serapeum:true scoped))))
-		
+                
 
 (defrule t-block-end (and (and t-statement-start ws* "endblock")
-			  (? (and ws name))
-			  (and ws* t-statement-end))
+                          (? (and ws name))
+                          (and ws* t-statement-end))
   (:destructure (start name end)
     (declare (ignore start end))
     (second name)))
@@ -752,9 +752,9 @@ if_stmt ::=  "if" assignment_expression ":" suite
 ;; extends (or string identifier)
 
 (defrule t-extends (and
-		    (and t-statement-start ws* "extends" ws)
-		    expression
-		    (and ws* t-statement-end))
+                    (and t-statement-start ws* "extends" ws)
+                    expression
+                    (and ws* t-statement-end))
   (:destructure (start expr end)
     (declare (ignore start end))
     (list :extends expr)))
@@ -767,9 +767,9 @@ if_stmt ::=  "if" assignment_expression ":" suite
     (list :filter-block filters suite)))
 
 (defrule t-filter-start (and
-			 (and t-statement-start ws* "filter" ws)
-			 short-filters
-			 (and ws* t-statement-end))
+                         (and t-statement-start ws* "filter" ws)
+                         short-filters
+                         (and ws* t-statement-end))
   (:destructure (start filters end)
     (declare (ignore start end))
     filters))
@@ -784,54 +784,54 @@ if_stmt ::=  "if" assignment_expression ":" suite
 ;; include
 
 (defrule t-include (and (and t-statement-start ws* "include" ws*)
-			expression
-			(? (and ws* "ignore" ws "missing"))
-			(? (and ws* (or "without" "with") ws "context"))
-			(and ws* t-statement-end))
+                        expression
+                        (? (and ws* "ignore" ws "missing"))
+                        (? (and ws* (or "without" "with") ws "context"))
+                        (and ws* t-statement-end))
   (:destructure (start expr ignore with/out end)
     (declare (ignore start end))
     (list :include
-	  expr
-	  (serapeum:true ignore)
-	  (if (null with/out)
-	      t
-	      (if (string= "with" (second with/out)) t nil)))))
+          expr
+          (serapeum:true ignore)
+          (if (null with/out)
+              t
+              (if (string= "with" (second with/out)) t nil)))))
 
     
 ;; macro / call
 ;; import
 
 (defrule t-import (and (and t-statement-start ws* "import" ws*)
-		       expression
-		       (and ws "as" ws)
-		       target-list
-		       (? (and ws* (or "without" "with") ws "context"))
-		       (and ws* t-statement-end))
+                       expression
+                       (and ws "as" ws)
+                       target-list
+                       (? (and ws* (or "without" "with") ws "context"))
+                       (and ws* t-statement-end))
   (:destructure (start expr as targets with/out end)
     (declare (ignore start as end))
     (list :import
-	  expr
-	  targets
-	  (if with/out
-	      t
-	      (if (string= "with" (second with/out)) t nil)))))
+          expr
+          targets
+          (if with/out
+              t
+              (if (string= "with" (second with/out)) t nil)))))
 
 ;; from
 
 (defrule t-from (and (and t-statement-start ws* "from" ws*)
-		     expression
-		     (and ws "import" ws)
-		     aliases
-		     (? (and ws* (or "without" "with") ws "context"))
-		     (and ws* t-statement-end))
+                     expression
+                     (and ws "import" ws)
+                     aliases
+                     (? (and ws* (or "without" "with") ws "context"))
+                     (and ws* t-statement-end))
   (:destructure (start expr import aliases with/out end)
     (declare (ignore start import end))
     (list :from
-	  expr
-	  aliases
-	  (if with/out
-	      t
-	      (if (string= "with" (second with/out)) t nil)))))
+          expr
+          aliases
+          (if with/out
+              t
+              (if (string= "with" (second with/out)) t nil)))))
 
 (defrule aliases (and alias (* (and (and ws* "," ws*) alias)))
   (:lambda (a)
@@ -840,8 +840,8 @@ if_stmt ::=  "if" assignment_expression ":" suite
 (defrule alias (or (and name ws "as" ws name) name)
   (:lambda (a)
     (if (consp a)
-	(list (first a) (fifth a))
-	a)))
+        (list (first a) (fifth a))
+        a)))
 
 ;; with
 
@@ -862,14 +862,14 @@ if_stmt ::=  "if" assignment_expression ":" suite
 (defrule assign-element (and target-list (and ws* "=" ws*) expression)
   (:lambda (a)
     (list (first a) (third a))))
-			  
+                          
 ;; autoescape
 
 (defrule t-autoescape (and t-autoescape-start suite t-autoescape-end)
   (:destructure (start suite end)
     (declare (ignore end))
     `(:autoescape ,start ,suite)))
-		 
+                 
 (defrule t-autoescape-start (and t-statement-start ws* "autoescape" ws identifier ws* t-statement-end)
   (:function fifth))
 
@@ -889,14 +889,14 @@ if_stmt ::=  "if" assignment_expression ":" suite
     `(:block-set ,@(first s) ,(second s))))
 
 (defrule t-set-block-start (and
-			    (and t-statement-start ws* "set" ws*)
-			    target
-			    (? filters)
-			    (and ws* t-statement-end))
+                            (and t-statement-start ws* "set" ws*)
+                            target
+                            (? filters)
+                            (and ws* t-statement-end))
   (:destructure (start target filters end)
     (declare (ignore start end))
     (list target filters)))
-	     
+             
 (defrule t-set-block-end (and t-statement-start ws* "endset" ws* t-statement-end)
   (:constant nil))
 
@@ -913,6 +913,6 @@ if_stmt ::=  "if" assignment_expression ":" suite
     (serapeum:walk-tree
      (lambda (node)
        (when (and (consp node) (eql :identifier (car node)))
-	 (pushnew (cadr node) identifiers :test #'string=)))
+         (pushnew (cadr node) identifiers :test #'string=)))
      parsed-template)
     (sort identifiers #'string<)))

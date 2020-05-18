@@ -8,7 +8,7 @@
   (:method ((thing string))
     (serapeum:with-standard-input-syntax
      (let ((*read-eval* nil)
-	   (*package* (find-package "GINJISH-COMPILER"))) ; FIXME good choice?
+           (*package* (find-package "GINJISH-COMPILER"))) ; FIXME good choice?
        (read-from-string thing)))))
 
 (defun find-filter (name)
@@ -18,9 +18,9 @@
   (loop for (name args) in filters
      with result = (funcall value stream)
      do (alexandria:if-let ((fn (find-filter name)))
-	  (let ((arguments (mapcar (alexandria:rcurry #'funcall stream) args)))
-	    (setf result (apply fn result arguments)))
-	  (error "Unknown filter '~A'" name))
+          (let ((arguments (mapcar (alexandria:rcurry #'funcall stream) args)))
+            (setf result (apply fn result arguments)))
+          (error "Unknown filter '~A'" name))
      finally (return result)))
 
 (defun find-test (name)
@@ -35,7 +35,7 @@
 (defun read-keyword (string)
   (serapeum:with-standard-input-syntax
     (let ((*package* (find-package :keyword))
-	  (*read-eval* nil))
+          (*read-eval* nil))
       (read-from-string string))))
 
 (defun name-equal (a b)
@@ -46,27 +46,27 @@
     (elt map key))
   (:method ((map list) key)
     (if (listp (car map))
-	(cdr (assoc key map :test #'name-equal))
-	(cadr (member key map :test #'name-equal))))
+        (cdr (assoc key map :test #'name-equal))
+        (cadr (member key map :test #'name-equal))))
   (:method ((map hash-table) key) ; FIXME symbols and strings as separate namespaces?
     (gethash key map))
   (:method ((map standard-object) key)
     #+(or)(closer-mop:ensure-finalized map) ; accessing an instance, surely
     (or
      (loop for slot in (alexandria:mappend
-			#'closer-mop:class-direct-slots
-			(closer-mop:class-precedence-list (class-of map)))
-	for readers = (closer-mop:slot-definition-readers slot)
-	do (alexandria:when-let ((reader
-				  (car
-				   (member key readers
-					   :test #'name-equal))))
-	     (return (funcall reader map))))
+                        #'closer-mop:class-direct-slots
+                        (closer-mop:class-precedence-list (class-of map)))
+        for readers = (closer-mop:slot-definition-readers slot)
+        do (alexandria:when-let ((reader
+                                  (car
+                                   (member key readers
+                                           :test #'name-equal))))
+             (return (funcall reader map))))
      (loop for slot in (closer-mop:class-slots (class-of map))
-	for name = (closer-mop:slot-definition-name slot)
-	when (and (slot-boundp map name)
-		  (name-equal name key))
-	do (return (slot-value map name)))))
+        for name = (closer-mop:slot-definition-name slot)
+        when (and (slot-boundp map name)
+                  (name-equal name key))
+        do (return (slot-value map name)))))
   (:method ((map sequence) (key integer))
     (elt map key)))
 
@@ -80,7 +80,7 @@
      else collect v into res
      finally
        (unless collected
-	 (setf res (list* key value res)))
+         (setf res (list* key value res)))
        (return res)))
 
 (defgeneric set-load-value (map key value) ; FIXME missing a step?
@@ -92,53 +92,53 @@
     map)
   (:method ((map list) key value)
     (if (consp (car map))
-	(let ((acons (assoc key map :test #'name-equal)))
-	  (if acons
-	      (progn
-		(rplacd acons value)
-		map)
-	      (list* (cons key value) map)))
-	(set-plist-value map key value)))
+        (let ((acons (assoc key map :test #'name-equal)))
+          (if acons
+              (progn
+                (rplacd acons value)
+                map)
+              (list* (cons key value) map)))
+        (set-plist-value map key value)))
   (:method ((map hash-table) key value)
     (setf (gethash key map) value)
     map)
   (:method ((map standard-object) key value) ; FIXME test writers
     (or
      (loop for slot in (alexandria:mappend
-			#'closer-mop:class-direct-slots
-			(closer-mop:class-precedence-list (class-of map)))
-	for writers = (closer-mop:slot-definition-writers slot)
-	  then (closer-mop:slot-definition-writers slot)
-	do (alexandria:when-let ((writer
-				  (car
-				   (member key writers
-					   :key #'second
-					   :test #'name-equal))))
-	     (funcall (fdefinition writer) value map)
-	     (return map)))
+                        #'closer-mop:class-direct-slots
+                        (closer-mop:class-precedence-list (class-of map)))
+        for writers = (closer-mop:slot-definition-writers slot)
+          then (closer-mop:slot-definition-writers slot)
+        do (alexandria:when-let ((writer
+                                  (car
+                                   (member key writers
+                                           :key #'second
+                                           :test #'name-equal))))
+             (funcall (fdefinition writer) value map)
+             (return map)))
     (loop for slot in (closer-mop:class-slots (class-of map))
        for name = (closer-mop:slot-definition-name slot)
        when (name-equal name key)
        do (setf (slot-value map name) value)
-	 (return map))))
+         (return map))))
   (:method (map (key integer) value)
     (setf (elt map key) value)
     map))
 
 (define-setf-expander load-value (place key
-				  &aux (new-val (gensym "NEW-VAL"))
-				    (place-store (gensym "PLACE"))
-				  &environment env)
+                                  &aux (new-val (gensym "NEW-VAL"))
+                                    (place-store (gensym "PLACE"))
+                                  &environment env)
   (declare (ignore env))
   (values ()
-	  ()
-	  `(,new-val)
-	  `(progn
-	     (multiple-value-bind (,new-val ,place-store)
-		 (set-load-value ,place ,key ,new-val)
-	       (setf ,place ,place-store)
-	       ,new-val))
-	  `(load-value ,place ,key)))
+          ()
+          `(,new-val)
+          `(progn
+             (multiple-value-bind (,new-val ,place-store)
+                 (set-load-value ,place ,key ,new-val)
+               (setf ,place ,place-store)
+               ,new-val))
+          `(load-value ,place ,key)))
 
 (defclass context ()
   ((%map :initarg :map)
@@ -156,11 +156,11 @@
 (defmethod load-value ((map context) key)
   (with-slots (%map %parent) map
     (or (load-value %map key)
-	(and %parent (load-value %parent key)))))
+        (and %parent (load-value %parent key)))))
 
 (defmethod set-load-value ((map context) key value)
   (setf (gethash key (slot-value map '%map))
-	value)
+        value)
   map)
 
 (defgeneric truthy (thing)
@@ -182,8 +182,8 @@
 (defgeneric compile-element (element)
   (:method ((element cons))
     (if (symbolp (first element))
-	(compile-tagged-element (first element) (rest element))
-	(error "Unknown element: ~S" element))))
+        (compile-tagged-element (first element) (rest element))
+        (error "Unknown element: ~S" element))))
 
 (defmethod compile-element ((element (eql :comment)))
   (constantly nil))
@@ -235,7 +235,7 @@
   (let ((contents (mapcar #'compile-element rest)))
     (alexandria:named-lambda :suite (stream)
       (dolist (element contents)
-	(funcall element stream)))))
+        (funcall element stream)))))
 
 (defmethod compile-tagged-element ((tag (eql :string)) rest)
   (constantly (first rest)))
@@ -268,29 +268,29 @@
   (:method ((thing list) stream &optional recursive)
     (declare (ignore recursive))
     (cond ((alexandria:proper-list-p thing)
-	   (princ "[" stream)
-	   (loop for l on thing
-	      do (print-expression (car l) stream t)
-	      when (cdr l)
-	      do (princ ", " stream))
-	   (princ "]" stream))
-	  (t
-	   (princ "(" stream)
-	   (loop for l on thing
-	      do (print-expression (car l) stream t)
-	      when (cdr l)
-	      do (princ ", " stream)
-	      finally (print-expression l stream t))
-	   (princ ")" stream))))
+           (princ "[" stream)
+           (loop for l on thing
+              do (print-expression (car l) stream t)
+              when (cdr l)
+              do (princ ", " stream))
+           (princ "]" stream))
+          (t
+           (princ "(" stream)
+           (loop for l on thing
+              do (print-expression (car l) stream t)
+              when (cdr l)
+              do (princ ", " stream)
+              finally (print-expression l stream t))
+           (princ ")" stream))))
   (:method ((thing hash-table) stream &optional recursive)
     (declare (ignore recursive))
     (princ "{" stream)
     (loop for k on (alexandria:hash-table-keys thing)
-	 do (print-expression (car k) stream t)
-	 (princ ":" stream)
-	 (print-expression (gethash (car k) thing) stream t)
+         do (print-expression (car k) stream t)
+         (princ ":" stream)
+         (print-expression (gethash (car k) thing) stream t)
        when (cdr k)
-	 do (princ ", " stream))
+         do (princ ", " stream))
     (princ "}" stream)))
 
 (defun print-expression-to-string (thing)
@@ -304,26 +304,26 @@
 
 (defmethod compile-tagged-element ((tag (eql :if-expr)) rest)
   (let ((test (compile-element (first rest)))
-	(then (compile-element (second rest)))
-	(else (compile-element (third rest))))
+        (then (compile-element (second rest)))
+        (else (compile-element (third rest))))
     (alexandria:named-lambda :if-expr (stream)
       (if (truthy (funcall test stream))
-	  (funcall then stream)
-	  (funcall else stream)))))
+          (funcall then stream)
+          (funcall else stream)))))
 
 (defmethod compile-tagged-element ((tag (eql :or)) rest)
   (let ((left (compile-element (first rest)))
-	(right (compile-element (second rest))))
+        (right (compile-element (second rest))))
     (alexandria:named-lambda :or (stream)
       (or (truthy (funcall left stream))
-	  (truthy (funcall right stream))))))
+          (truthy (funcall right stream))))))
 
 (defmethod compile-tagged-element ((tag (eql :and)) rest)
   (let ((left (compile-element (first rest)))
-	(right (compile-element (second rest))))
+        (right (compile-element (second rest))))
     (alexandria:named-lambda :and (stream)
       (and (truthy (funcall left stream))
-	   (truthy (funcall right stream))))))
+           (truthy (funcall right stream))))))
 
 (defmethod compile-tagged-element ((tag (eql :not)) rest)
   (let ((expr (compile-element (first rest))))
@@ -337,25 +337,25 @@
     (>= left right))
   (:method ((left list) (right list))
     (let ((leftlen (length left))
-	  (rightlen (length right))
-	  (mismatch (mismatch left right)))
+          (rightlen (length right))
+          (mismatch (mismatch left right)))
       (cond
-	((null mismatch) ; same
-	 t)
-	((>= mismatch leftlen) ; right longer
-	 nil)
-	((>= mismatch rightlen) ; left longer
-	 t)
-	(t
-	 (gte (elt left mismatch) (elt right mismatch)))))))
+        ((null mismatch) ; same
+         t)
+        ((>= mismatch leftlen) ; right longer
+         nil)
+        ((>= mismatch rightlen) ; left longer
+         t)
+        (t
+         (gte (elt left mismatch) (elt right mismatch)))))))
 
 (defmacro define-comparison-compiler (tag func)
   `(defmethod compile-tagged-element ((tag (eql ,tag)) rest)
      (let ((left (compile-element (first rest)))
-	   (right (compile-element (second rest))))
+           (right (compile-element (second rest))))
        (alexandria:named-lambda ,tag (stream)
-	 (,func (funcall left stream)
-		(funcall right stream))))))
+         (,func (funcall left stream)
+                (funcall right stream))))))
 
 (define-comparison-compiler :gte gte)
 
@@ -366,17 +366,17 @@
     (<= left right))
   (:method ((left list) (right list))
     (let ((leftlen (length left))
-	  (rightlen (length right))
-	  (mismatch (mismatch left right)))
+          (rightlen (length right))
+          (mismatch (mismatch left right)))
       (cond
-	((null mismatch) ; same
-	 t)
-	((>= mismatch leftlen) ; right longer
-	 t)
-	((>= mismatch rightlen) ; left longer
-	 nil)
-	(t
-	 (lte (elt left mismatch) (elt right mismatch)))))))
+        ((null mismatch) ; same
+         t)
+        ((>= mismatch leftlen) ; right longer
+         t)
+        ((>= mismatch rightlen) ; left longer
+         nil)
+        (t
+         (lte (elt left mismatch) (elt right mismatch)))))))
 
 (define-comparison-compiler :lte lte)
 
@@ -387,17 +387,17 @@
     (< left right))
   (:method ((left list) (right list))
     (let ((leftlen (length left))
-	  (rightlen (length right))
-	  (mismatch (mismatch left right)))
+          (rightlen (length right))
+          (mismatch (mismatch left right)))
       (cond
-	((null mismatch) ; same
-	 nil)
-	((>= mismatch leftlen) ; right longer
-	 t)
-	((>= mismatch rightlen) ; left longer
-	 nil)
-	(t
-	 (lt (elt left mismatch) (elt right mismatch)))))))
+        ((null mismatch) ; same
+         nil)
+        ((>= mismatch leftlen) ; right longer
+         t)
+        ((>= mismatch rightlen) ; left longer
+         nil)
+        (t
+         (lt (elt left mismatch) (elt right mismatch)))))))
 
 (define-comparison-compiler :lt lt)
 
@@ -408,17 +408,17 @@
     (> left right))
   (:method ((left list) (right list))
     (let ((leftlen (length left))
-	  (rightlen (length right))
-	  (mismatch (mismatch left right)))
+          (rightlen (length right))
+          (mismatch (mismatch left right)))
       (cond
-	((null mismatch) ; same
-	 nil)
-	((>= mismatch leftlen) ; right longer
-	 nil)
-	((>= mismatch rightlen) ; left longer
-	 t)
-	(t
-	 (gt (elt left mismatch) (elt right mismatch)))))))
+        ((null mismatch) ; same
+         nil)
+        ((>= mismatch leftlen) ; right longer
+         nil)
+        ((>= mismatch rightlen) ; left longer
+         t)
+        (t
+         (gt (elt left mismatch) (elt right mismatch)))))))
 
 (define-comparison-compiler :gt gt)
 
@@ -429,20 +429,20 @@
     (= left right))
   (:method ((left list) (right list))
     (let ((leftlen (length left))
-	  (rightlen (length right))
-	  (mismatch (mismatch left right)))
+          (rightlen (length right))
+          (mismatch (mismatch left right)))
       (cond
-	((null mismatch) ; same
-	 t)
-	((>= mismatch leftlen) ; right longer
-	 nil)
-	((>= mismatch rightlen) ; left longer
-	 nil)
-	(t
-	 (pequal (elt left mismatch) (elt right mismatch))))))
+        ((null mismatch) ; same
+         t)
+        ((>= mismatch leftlen) ; right longer
+         nil)
+        ((>= mismatch rightlen) ; left longer
+         nil)
+        (t
+         (pequal (elt left mismatch) (elt right mismatch))))))
   (:method ((left hash-table) (right hash-table))
     (let ((leftlist (alexandria:hash-table-plist left))
-	  (rightlist (alexandria:hash-table-plist right)))
+          (rightlist (alexandria:hash-table-plist right)))
       (equal leftlist rightlist)))
   (:method (left right)
     nil))
@@ -480,10 +480,10 @@
 (defmacro define-binary-compiler (tag func)
   `(defmethod compile-tagged-element ((tag (eql ,tag)) rest)
      (let ((left (compile-element (first rest)))
-	   (right (compile-element (second rest))))
+           (right (compile-element (second rest))))
        (alexandria:named-lambda ,tag (stream)
-	 (,func (funcall left stream)
-		(funcall right stream))))))
+         (,func (funcall left stream)
+                (funcall right stream))))))
 
 (define-binary-compiler :plus plus)
 
@@ -496,8 +496,8 @@
 (defgeneric pconcatenate (left right)
   (:method (left right)
     (concatenate 'string
-		 (print-expression-to-string left)
-		 (print-expression-to-string right))))
+                 (print-expression-to-string left)
+                 (print-expression-to-string right))))
 
 (define-binary-compiler :concatenate pconcatenate)
 
@@ -540,23 +540,23 @@
 
 (defmethod compile-tagged-element ((tag (eql :pow)) rest)
   (let ((base (compile-element (first rest)))
-	(power (compile-element (second rest))))
+        (power (compile-element (second rest))))
     (alexandria:named-lambda :pow (stream)
       (expt (funcall base stream) (funcall power stream)))))
 
 (defmethod compile-tagged-element ((tag (eql :filter)) rest)
   (let ((value (compile-element (first rest)))
-	(filters (loop for (name args) in (rest rest)
-		    collect (list name (mapcar #'compile-element args)))))
+        (filters (loop for (name args) in (rest rest)
+                    collect (list name (mapcar #'compile-element args)))))
     (alexandria:named-lambda :filter (stream)
       (apply-filters value filters stream))))
 
 (defmethod compile-tagged-element ((tag (eql :test)) rest)
   (destructuring-bind (value-form (name args)) rest
     (let ((value (compile-element value-form))
-	  (arguments (mapcar #'compile-element args)))
+          (arguments (mapcar #'compile-element args)))
       (alexandria:named-lambda :test (stream)
-	(apply-test value name arguments stream)))))
+        (apply-test value name arguments stream)))))
 
 (defmethod compile-tagged-element ((tag (eql :tuple)) rest) ; FIXME tuples are lists
   (let ((elements (mapcar #'compile-element rest)))
@@ -575,15 +575,15 @@
 
 (defmethod compile-tagged-element ((tag (eql :dict)) rest)
   (let ((elements
-	 (loop for (key value) in rest
-	    collecting (list (compile-element key)
-			     (compile-element value)))))
+         (loop for (key value) in rest
+            collecting (list (compile-element key)
+                             (compile-element value)))))
     (alexandria:named-lambda :dict (stream)
       (let ((ht (make-hash-table :test 'equal)))
-	(loop for (key value) in elements
-	   do (setf (gethash (funcall key stream) ht)
-		    (funcall value stream)))
-	ht))))
+        (loop for (key value) in elements
+           do (setf (gethash (funcall key stream) ht)
+                    (funcall value stream)))
+        ht))))
 
 (defmethod compile-tagged-element ((tag (eql :identifier)) rest)
   (alexandria:named-lambda :identifier (stream)
@@ -592,10 +592,10 @@
 
 (defmethod compile-tagged-element ((tag (eql :get-attr)) rest)
   (let ((primary (compile-element (first rest)))
-	(identifier (second (second rest))))
+        (identifier (second (second rest))))
     (alexandria:named-lambda :get-attr (stream)
       (load-value (funcall primary stream)
-		  identifier))))
+                  identifier))))
 
 (defclass slice ()
   ((%lower-bound :initarg :lower-bound :reader lower-bound)
@@ -617,68 +617,68 @@
 (defgeneric get-item (object indices)
   (:method ((object list) indices)
     (if (= 1 (length indices))
-	(let ((index (first indices)))
-	  (if (integerp index)
-	      (progn
-		(when (minusp index)
-		  (incf index (length object)))
-		(elt object index))
-	      (load-value object index)))
-	(load-value object indices)))
+        (let ((index (first indices)))
+          (if (integerp index)
+              (progn
+                (when (minusp index)
+                  (incf index (length object)))
+                (elt object index))
+              (load-value object index)))
+        (load-value object indices)))
   (:method ((object string) indices)
     (unless (and (= 1 (length indices))
-		 (integerp (first indices)))
+                 (integerp (first indices)))
       (error "Malformed attribute for string"))
     (let ((index (first indices)))
       (when (minusp index)
-	(incf index (length object)))
+        (incf index (length object)))
       (string (elt object (first indices)))))
   (:method ((object hash-table) indices)
     (gethash (if (serapeum:single indices)
-		 (first indices)
-		 indices)
-	     object)))
+                 (first indices)
+                 indices)
+             object)))
 
 (defmethod compile-tagged-element ((tag (eql :get-item)) rest)
   (let ((primary (compile-element (first rest)))
-	(indices (mapcar #'compile-element (second rest))))
+        (indices (mapcar #'compile-element (second rest))))
     (alexandria:named-lambda :get-item (stream)
       (get-item (funcall primary stream)
-		(mapcar (alexandria:rcurry #'funcall stream) indices)))))
+                (mapcar (alexandria:rcurry #'funcall stream) indices)))))
 
 (defmethod compile-tagged-element ((tag (eql :invoke)) rest)
   (let ((func (compile-element (first rest)))
-	(args (mapcar #'compile-element (second rest))))
+        (args (mapcar #'compile-element (second rest))))
     (alexandria:named-lambda :invoke (stream)
       (apply (funcall func stream)
-	     (mapcar (alexandria:rcurry #'funcall stream) args)))))
+             (mapcar (alexandria:rcurry #'funcall stream) args)))))
 
 (defgeneric get-slice (object slice)
   (:method ((object list) (slice slice))
     (let ((stride (or (stride slice) 1))
-	  (start (or (lower-bound slice) 0))
-	  (end (or (upper-bound slice) (length object))))
+          (start (or (lower-bound slice) 0))
+          (end (or (upper-bound slice) (length object))))
       (if (minusp stride)
-	  (loop for index
-	     from (1- end)
-	     by (abs stride)
-	     above (1- start)
-	     collecting (elt object index))
-	  (loop for index
-	     from start
-	     by stride
-	     below end
-	     collecting (elt object index)))))
+          (loop for index
+             from (1- end)
+             by (abs stride)
+             above (1- start)
+             collecting (elt object index))
+          (loop for index
+             from start
+             by stride
+             below end
+             collecting (elt object index)))))
   (:method ((object string) (slice slice))
     (let ((chars (get-slice (coerce object 'list) slice)))
       (coerce chars 'string))))
 
 (defmethod compile-tagged-element ((tag (eql :slicing)) rest)
   (let ((primary (compile-element (first rest)))
-	(slice (compile-element (second rest))))
+        (slice (compile-element (second rest))))
     (alexandria:named-lambda :slicing (stream)
       (get-slice (funcall primary stream)
-		 (funcall slice stream)))))
+                 (funcall slice stream)))))
 
 ;;; TODO :call
 
@@ -688,58 +688,58 @@
 
 (defmethod compile-tagged-element ((tag (eql :if)) rest)
   (let ((test (compile-element (first rest)))
-	(then (compile-element (second rest)))
-	(elifs (alexandria:when-let ((it (fourth rest)))
-		 (loop for (test consequent) in it
-		    collecting (list (compile-element test)
-				     (compile-element consequent)))))
-	(else (alexandria:when-let ((it (third rest)))
-		(compile-element it))))
+        (then (compile-element (second rest)))
+        (elifs (alexandria:when-let ((it (fourth rest)))
+                 (loop for (test consequent) in it
+                    collecting (list (compile-element test)
+                                     (compile-element consequent)))))
+        (else (alexandria:when-let ((it (third rest)))
+                (compile-element it))))
     (alexandria:named-lambda :if (stream)
       (or (and (truthy (funcall test stream))
-	       (or (funcall then stream) t))
-	  (and elifs
-	       (loop with triggered = nil
-		  for (test consequent) in elifs
-		  when (truthy (funcall test stream))
-		  do (funcall consequent stream)
-		    (setf triggered t)
-		    (loop-finish)
-		  finally (return triggered)))
-	  (and else (funcall else stream))))))
+               (or (funcall then stream) t))
+          (and elifs
+               (loop with triggered = nil
+                  for (test consequent) in elifs
+                  when (truthy (funcall test stream))
+                  do (funcall consequent stream)
+                    (setf triggered t)
+                    (loop-finish)
+                  finally (return triggered)))
+          (and else (funcall else stream))))))
 
 (defmethod compile-tagged-element ((tag (eql :assign)) rest)
   (let ((expr (compile-element (second rest)))
-	(targets (first rest)))
+        (targets (first rest)))
     (if (= 1 (length targets))
-	(alexandria:named-lambda :assign (stream)
-	  (setf (load-value *context* (first targets))
-		(funcall expr stream)))
-	(alexandria:named-lambda :assign (stream)
-	  (let ((seq (funcall expr stream)))
-	    (dotimes (index (length targets))
-	      (setf (load-value *context* (elt targets index))
-		    (elt seq index))))))))
+        (alexandria:named-lambda :assign (stream)
+          (setf (load-value *context* (first targets))
+                (funcall expr stream)))
+        (alexandria:named-lambda :assign (stream)
+          (let ((seq (funcall expr stream)))
+            (dotimes (index (length targets))
+              (setf (load-value *context* (elt targets index))
+                    (elt seq index))))))))
 
 (defmethod compile-tagged-element ((tag (eql :with)) rest)
   (let ((assignments
-	 (loop for (target exprs) in (first rest)
-	    collecting (list target (compile-element exprs))))
-	(suite (compile-element (second rest))))
+         (loop for (target exprs) in (first rest)
+            collecting (list target (compile-element exprs))))
+        (suite (compile-element (second rest))))
     (alexandria:named-lambda :with (stream)
       (let ((scope '())) ; FIXME environment
-	(loop for (target exprs) in assignments
-	   if (= 1 (length target))
-	   do (setf (load-value scope (first target))
-		    (funcall exprs stream))
-	   else
-	   do (let ((seq (funcall exprs stream)))
-		(dotimes (index (length target))
-		  (setf (load-value scope (elt target index))
-			(elt seq index))))
-	   finally
-	     (let ((*context* (make-context *context* scope)))
-	       (funcall suite stream)))))))
+        (loop for (target exprs) in assignments
+           if (= 1 (length target))
+           do (setf (load-value scope (first target))
+                    (funcall exprs stream))
+           else
+           do (let ((seq (funcall exprs stream)))
+                (dotimes (index (length target))
+                  (setf (load-value scope (elt target index))
+                        (elt seq index))))
+           finally
+             (let ((*context* (make-context *context* scope)))
+               (funcall suite stream)))))))
 
 (defgeneric to-list (thing) ; FIXME more general iterable?
   (:method (thing)
@@ -749,63 +749,63 @@
 
 (defmethod compile-tagged-element ((tag (eql :for)) rest)
   (let ((targets (first rest))
-	(source (compile-element (second rest)))
-	(filter (alexandria:when-let ((it (third rest)))
-		  (compile-element it)))
-	(body (compile-element (fourth rest)))
-	(else (alexandria:when-let ((it (fifth rest)))
-		(compile-element it)))
-	(recursivep (sixth rest)))
+        (source (compile-element (second rest)))
+        (filter (alexandria:when-let ((it (third rest)))
+                  (compile-element it)))
+        (body (compile-element (fourth rest)))
+        (else (alexandria:when-let ((it (fifth rest)))
+                (compile-element it)))
+        (recursivep (sixth rest)))
     (declare (ignore recursivep))
     (alexandria:named-lambda :for (stream)
       (let ((s (to-list (funcall source stream))))
-	(if (null s)
-	    (and else (funcall else stream))
-	    (let ((scope (make-hash-table :test 'equal))
-		  (loop-dict (make-hash-table :test 'equal)))
-	      (dotimes (index (length targets))
-		(setf (load-value scope (elt targets index))
-		      nil))
-	      (setf (load-value scope "loop") loop-dict)
-	      (let ((*context* (make-context *context* scope)))
-		(flet ((load-targets (this)
-			 (if (serapeum:single targets)
-			     (setf (load-value *context* (first targets))
-				   this)
-			     (dotimes (i (length targets))
-			       (setf (load-value *context* (elt targets i))
-				     (elt this i))))))
-		  (when filter
-		    (setf s (loop for item in s
-			       do (load-targets item)		       
-			       when (funcall filter stream)
-			       collect item)))
-		  (let ((length (length s)))
-		    (setf (gethash "length" loop-dict)
-			  length
-			  (gethash "changed" loop-dict)
-			  (alexandria:compose #'serapeum:true (serapeum:distinct)))
-		    (loop 
-		       for previtem = nil then this
-		       for (this . rest) on s
-		       for nextitem = (first rest)
-		       for index from 1
-		       for index0 from 0
-		       for revindex downfrom length
-		       for revindex0 downfrom (1- length)
-		       for first = t then nil
-		       for last = (= index length)
-		       do (setf (gethash "index" loop-dict) index
-				(gethash "index0" loop-dict) index0
-				(gethash "revindex" loop-dict) revindex
-				(gethash "revindex0" loop-dict) revindex0
-				(gethash "first" loop-dict) first
-				(gethash "last" loop-dict) last
-				(gethash "previtem" loop-dict) previtem
-				(gethash "nextitem" loop-dict) nextitem)
-		       ;; depth depth0 cycle
-			 (load-targets this)
-			 (funcall body stream)))))))))))
+        (if (null s)
+            (and else (funcall else stream))
+            (let ((scope (make-hash-table :test 'equal))
+                  (loop-dict (make-hash-table :test 'equal)))
+              (dotimes (index (length targets))
+                (setf (load-value scope (elt targets index))
+                      nil))
+              (setf (load-value scope "loop") loop-dict)
+              (let ((*context* (make-context *context* scope)))
+                (flet ((load-targets (this)
+                         (if (serapeum:single targets)
+                             (setf (load-value *context* (first targets))
+                                   this)
+                             (dotimes (i (length targets))
+                               (setf (load-value *context* (elt targets i))
+                                     (elt this i))))))
+                  (when filter
+                    (setf s (loop for item in s
+                               do (load-targets item)                  
+                               when (funcall filter stream)
+                               collect item)))
+                  (let ((length (length s)))
+                    (setf (gethash "length" loop-dict)
+                          length
+                          (gethash "changed" loop-dict)
+                          (alexandria:compose #'serapeum:true (serapeum:distinct)))
+                    (loop 
+                       for previtem = nil then this
+                       for (this . rest) on s
+                       for nextitem = (first rest)
+                       for index from 1
+                       for index0 from 0
+                       for revindex downfrom length
+                       for revindex0 downfrom (1- length)
+                       for first = t then nil
+                       for last = (= index length)
+                       do (setf (gethash "index" loop-dict) index
+                                (gethash "index0" loop-dict) index0
+                                (gethash "revindex" loop-dict) revindex
+                                (gethash "revindex0" loop-dict) revindex0
+                                (gethash "first" loop-dict) first
+                                (gethash "last" loop-dict) last
+                                (gethash "previtem" loop-dict) previtem
+                                (gethash "nextitem" loop-dict) nextitem)
+                       ;; depth depth0 cycle
+                         (load-targets this)
+                         (funcall body stream)))))))))))
 
 #|
 
@@ -828,7 +828,7 @@
   (:method ((string string) &key &allow-other-keys)
     (let ((*autoescape* *autoescape*))
       (let ((function (parse 'template string)))
-	(make-instance 'compiled-template :template-function function)))))
+        (make-instance 'compiled-template :template-function function)))))
 
 (defgeneric render-template (template stream context &key &allow-other-keys)
   (:method ((template compiled-template) stream (context context) &key &allow-other-keys)

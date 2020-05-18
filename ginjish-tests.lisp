@@ -118,17 +118,17 @@
       (esrap:parse 'ginjish-grammar::expression "3 * (4 - 7)"))
   (is equal
       '(:if-expr (:lt (:identifier "a") (:identifier "b"))
-	t
-	(:get-item
-	 (:get-attr (:identifier "default") (:identifier "x"))
-	 (3 4)))
+        t
+        (:get-item
+         (:get-attr (:identifier "default") (:identifier "x"))
+         (3 4)))
       (esrap:parse 'ginjish-grammar::expression "true if a < b else default.x[3,4]"))
   (is equal
       '(:if-expr (:lt (:identifier "a") (:identifier "b"))
-	t
-	(:slicing
-	 (:get-attr (:identifier "default") (:identifier "x"))
-	 (:proper-slice 3 4 nil)))
+        t
+        (:slicing
+         (:get-attr (:identifier "default") (:identifier "x"))
+         (:proper-slice 3 4 nil)))
       (esrap:parse 'ginjish-grammar::expression "true if a < b else default.x[3:4]")))
 
 (define-test enclosure
@@ -231,41 +231,41 @@
   (is equal
       '(a 1 b nil)
       (let ((*context* (list 'a nil 'b nil)))
-	(setf (ginjish-compiler::load-value *context* 'a) 1)
-	*context*))
+        (setf (ginjish-compiler::load-value *context* 'a) 1)
+        *context*))
   (is equal
       '(a nil)
       (let ((*context* nil))
-	(setf (ginjish-compiler::load-value *context* 'a) nil)
-	*context*))
+        (setf (ginjish-compiler::load-value *context* 'a) nil)
+        *context*))
   (is equal
       "foo"
       (let ((*context* "woo")) (setf (ginjish-compiler::load-value *context* 0) #\f) *context*))
   (is equal
       '((a . 2) (b . 2))
       (let ((*context* (list (cons 'a  1) (cons 'b  2))))
-	(setf (ginjish-compiler::load-value *context* 'a) 2)
-	*context*))
+        (setf (ginjish-compiler::load-value *context* 'a) 2)
+        *context*))
   (is equal
       '(("a" . 2) ("b" . 2))
       (let ((*context* (serapeum:dict "a" 1 "b" 2)))
-	(setf (ginjish-compiler::load-value *context* "a") 2)
-	(sort (alexandria:hash-table-alist *context*) #'string< :key #'car)))
+        (setf (ginjish-compiler::load-value *context* "a") 2)
+        (sort (alexandria:hash-table-alist *context*) #'string< :key #'car)))
   (is equal
       2
       (let ((*context* (make-instance 'load-value-example :a 1 :b 2)))
-	(setf (ginjish-compiler::load-value *context* 'a) 2)
-	(slot-value *context* 'a)))
+        (setf (ginjish-compiler::load-value *context* 'a) 2)
+        (slot-value *context* 'a)))
   (is equal
       2
       (let ((*context* (make-instance 'load-value-example :a 1 :b 2)))
-	(setf (ginjish-compiler::load-value *context* 'lve-a) 2)
-	(lve-a *context*)))
+        (setf (ginjish-compiler::load-value *context* 'lve-a) 2)
+        (lve-a *context*)))
   (is equal
       2
       (let ((*context* (make-instance 'load-value-example2 :a 1 :b 2 :c 3)))
-	(setf (ginjish-compiler::load-value *context* 'lve-a) 2)
-	(lve-a *context*))))
+        (setf (ginjish-compiler::load-value *context* 'lve-a) 2)
+        (lve-a *context*))))
 
 (define-test truthy
   :parent compiler
@@ -301,9 +301,9 @@
   (let ((ginjish-compiler::*context* env))
     (with-output-to-string (s)
       (funcall (ginjish-compiler::compile-element
-		(esrap:parse 'ginjish-grammar::suite
-			     string))
-	       s))))
+                (esrap:parse 'ginjish-grammar::suite
+                             string))
+               s))))
 
 (define-test if*
   :parent compiler)
@@ -367,11 +367,11 @@
   (is string=
       "42 = 23|1 = 2"
       (if-test-helper "{% with a=42, b=23 %}{{ a }} = {{ b }}{% endwith %}|{{ a }} = {{ b }}"
-		      '(a 1 b 2)))
+                      '(a 1 b 2)))
   (is string=
       "1|2|3|4|5"
       (if-test-helper "{% with a=1, b=2, c=b, d=e, e=5 %}{{ a }}|{{ b }}|{{ c }}|{{ d }}|{{ e }}{% endwith %}"
-		      '(b 3 e 4))))
+                      '(b 3 e 4))))
 
 (define-test for
   :parent compiler)
@@ -400,35 +400,35 @@
       "<>"
       (if-test-helper "<{% for item in seq %}{% else %}{% endfor %}>")))
 
-	
+        
 (define-test for-context-vars
   :parent for
   (is string=
       "1|0|3|2|True|False|3###2|1|2|1|False|False|3###3|2|1|0|False|True|3###"
       (if-test-helper "{% for item in seq %}{{ loop.index }}|{{ loop.index0 }}|{{ loop.revindex }}|{{ loop.revindex0 }}|{{ loop.first }}|{{ loop.last }}|{{ loop.length }}###{% endfor %}"
-		      (list 'seq '(1 2 3)))))
+                      (list 'seq '(1 2 3)))))
 
 (define-test for-cycling
   :parent for
   (skip "TODO do later"
     (is string=
-	"<1><2><1><2><1><2><1><2>"
-	(if-test-helper "{% for item in seq %}{{loop.cycle('<1>', '<2>') }}{% endfor %}{% for item in seq %}{{ loop.cycle(through[1],through[2]) }}{% endfor %}"
-			(list 'seq (alexandria:iota 4) 'through (list "<1>" "<2>"))))))
+        "<1><2><1><2><1><2><1><2>"
+        (if-test-helper "{% for item in seq %}{{loop.cycle('<1>', '<2>') }}{% endfor %}{% for item in seq %}{{ loop.cycle(through[1],through[2]) }}{% endfor %}"
+                        (list 'seq (alexandria:iota 4) 'through (list "<1>" "<2>"))))))
 
 (define-test for-lookaround
   :parent for
   (is string=
       "x-0-1|0-1-2|1-2-3|2-3-x|"
       (if-test-helper "{% for item in seq %}{{ loop.previtem|default('x') }}-{{ item }}-{{ loop.nextitem|default('x') }}|{% endfor %}"
-		      (list "seq" (alexandria:iota 4)))))
+                      (list "seq" (alexandria:iota 4)))))
 
 (define-test for-changed ; FIXME - loop.changed(nil) is always False
   :parent for
   (is string=
       "True,False,True,True,False,True,True,False,False,"
       (if-test-helper "{% for item in seq %}{{ loop.changed(item) }},{% endfor %}"
-		      (list 'seq '(t t 1 2 2 3 4 4 4)))))
+                      (list 'seq '(t t 1 2 2 3 4 4 4)))))
 
 (define-test for-scope
   :parent for
@@ -450,61 +450,61 @@
   :parent for
   (skip "TODO do later"
     (is string=
-	"[1<[1][2]>][2<[1][2]>][3<[a]>]"
-	(if-test-helper "{% for item in seq recursive %}[{{ loop.previtem.a if loop.previtem is defined else 'x' }}.{{item.a }}.{{ loop.nextitem.a if loop.nextitem is defined else 'x'}}{% if item.b %}<{{ loop(item.b) }}>{% endif %}]{% endfor %}"
-			(list 'seq
-			      (list 'a 1 'b (list (list 'a 1) (list 'a 2)))
-			    (list 'a 2 'b (list (list 'a 1) (list 'a 2)))
-			    (list 'a 3 'b (list (list 'a "a"))))))))
+        "[1<[1][2]>][2<[1][2]>][3<[a]>]"
+        (if-test-helper "{% for item in seq recursive %}[{{ loop.previtem.a if loop.previtem is defined else 'x' }}.{{item.a }}.{{ loop.nextitem.a if loop.nextitem is defined else 'x'}}{% if item.b %}<{{ loop(item.b) }}>{% endif %}]{% endfor %}"
+                        (list 'seq
+                              (list 'a 1 'b (list (list 'a 1) (list 'a 2)))
+                            (list 'a 2 'b (list (list 'a 1) (list 'a 2)))
+                            (list 'a 3 'b (list (list 'a "a"))))))))
 
 (define-test for-recursive-lookaround
   :parent for
   (skip "TODO do later"
     (is string=
-	"[x.1.2<[x.1.2][1.2.x]>][1.2.3<[x.1.2][1.2.x]>][2.3.x<[x.a.x]>]"
-	(if-test-helper "{% for item in seq recursive %}[{{ loop.previtem.a if loop.previtem is defined else 'x' }}.{{
+        "[x.1.2<[x.1.2][1.2.x]>][1.2.3<[x.1.2][1.2.x]>][2.3.x<[x.a.x]>]"
+        (if-test-helper "{% for item in seq recursive %}[{{ loop.previtem.a if loop.previtem is defined else 'x' }}.{{
             item.a }}.{{ loop.nextitem.a if loop.nextitem is defined else 'x'
             }}{% if item.b %}<{{ loop(item.b) }}>{% endif %}]{% endfor %}"
-			(list 'seq
-			      (list 'a 1 'b (list (list 'a 1) (list 'a 2)))
-			      (list 'a 2 'b (list (list 'a 1) (list 'a 2)))
-			      (list 'a 3 'b (list (list 'a "a"))))))))
+                        (list 'seq
+                              (list 'a 1 'b (list (list 'a 1) (list 'a 2)))
+                              (list 'a 2 'b (list (list 'a 1) (list 'a 2)))
+                              (list 'a 3 'b (list (list 'a "a"))))))))
 
 (define-test for-recursive-depth0
   :parent for
   (skip "TODO do later"
     (is string=
-	"[0:1<[1:1][1:2]>][0:2<[1:1][1:2]>][0:3<[1:a]>]"
-	(if-test-helper "{% for item in seq recursive %}[{{ loop.depth0 }}:{{ item.a }}{% if item.b %}<{{ loop(item.b) }}>{% endif %}]{% endfor %}"
-			(list 'seq
-			      (list 'a 1 'b (list (list 'a 1) (list 'a 2)))
-			      (list 'a 2 'b (list (list 'a 1) (list 'a 2)))
-			      (list 'a 3 'b (list (list 'a "a"))))))))
+        "[0:1<[1:1][1:2]>][0:2<[1:1][1:2]>][0:3<[1:a]>]"
+        (if-test-helper "{% for item in seq recursive %}[{{ loop.depth0 }}:{{ item.a }}{% if item.b %}<{{ loop(item.b) }}>{% endif %}]{% endfor %}"
+                        (list 'seq
+                              (list 'a 1 'b (list (list 'a 1) (list 'a 2)))
+                              (list 'a 2 'b (list (list 'a 1) (list 'a 2)))
+                              (list 'a 3 'b (list (list 'a "a"))))))))
 
 (define-test for-recursive-depth
   :parent for
   (skip "TODO do later"
     (is string=
-	"[1:1<[2:1][2:2]>][1:2<[2:1][2:2]>][1:3<[2:a]>]"
-	(if-test-helper "{% for item in seq recursive %}[{{ loop.depth }}:{{ item.a }}{% if item.b %}<{{ loop(item.b) }}>{% endif %}]{% endfor %}"
-			(list 'seq
-			      (list 'a 1 'b (list (list 'a 1) (list 'a 2)))
-			      (list 'a 2 'b (list (list 'a 1) (list 'a 2)))
-			      (list 'a 3 'b (list (list 'a "a"))))))))
+        "[1:1<[2:1][2:2]>][1:2<[2:1][2:2]>][1:3<[2:a]>]"
+        (if-test-helper "{% for item in seq recursive %}[{{ loop.depth }}:{{ item.a }}{% if item.b %}<{{ loop(item.b) }}>{% endif %}]{% endfor %}"
+                        (list 'seq
+                              (list 'a 1 'b (list (list 'a 1) (list 'a 2)))
+                              (list 'a 2 'b (list (list 'a 1) (list 'a 2)))
+                              (list 'a 3 'b (list (list 'a "a"))))))))
 
 (define-test for-looploop
   :parent for
   (is string=
       "[1|1][1|2][2|1][2|2]"
       (if-test-helper "{% for row in table %}{% set rowloop = loop %}{% for cell in row %}[{{ rowloop.index }}|{{ loop.index }}]{% endfor %}{% endfor %}"
-		      (list 'table (list "ab" "cd")))))
+                      (list 'table (list "ab" "cd")))))
 
 (define-test for-reversed-bug
   :parent for
   (is string=
       "1,2,3"
       (if-test-helper "{% for i in items %}{{ i }}{% if not loop.last %},{% endif %}{% endfor %}"
-		      (list 'items (reverse (list 3 2 1))))))
+                      (list 'items (reverse (list 3 2 1))))))
 
 (define-test for-loop-errors ; FIXME will <undefined> help?
   :parent for
@@ -516,7 +516,7 @@
   (is string=
       "[0][2][4][6][8]"
       (if-test-helper "{% for item in range(10) if item is even %}[{{ item }}]{% endfor %}"
-		      (list (cons "range" 'ginjish-builtins::range)))))
+                      (list (cons "range" 'ginjish-builtins::range)))))
 
 (define-test for-loop-unassignable ; FIXME is nil a better answer?
   :parent for
@@ -527,25 +527,25 @@
   (is string=
       "[True|True|False][False|True|False]"
       (if-test-helper "{% for s in seq %}[{{ loop.first }}{% for c in s %}|{{ loop.first }}{% endfor %}]{% endfor %}"
-		      (list 'seq (list "ab" "cd")))))
+                      (list 'seq (list "ab" "cd")))))
 
 (define-test for-scoped-loop-var
   :parent for
   (is string=
       "TrueFalse"
       (if-test-helper "{% for x in seq %}{{ loop.first }}{% for y in seq %}{% endfor %}{% endfor %}"
-		      (list 'seq "ab")))
+                      (list 'seq "ab")))
   (is string=
       "TrueFalseTrueFalse"
       (if-test-helper "{% for x in seq %}{% for y in seq %}{{ loop.first }}{% endfor %}{% endfor %}"
-		      (list 'seq "ab"))))
+                      (list 'seq "ab"))))
 
 (define-test for-recursive-empty-loop-iter
   :parent for
   (is string=
       ""
       (if-test-helper "{% for item in foo recursive %}{% endfor %}"
-		      (list 'foo nil))))
+                      (list 'foo nil))))
 
 ;; TODO call_in_loop scoping_bug
 
@@ -560,11 +560,11 @@
   (is string=
       "010203"
       (if-test-helper "{% for item in seq %}{{ x }}{% set x = item %}{{ x }}{% endfor %}"
-		      (list 'x 0 'seq (list 1 2 3))))
+                      (list 'x 0 'seq (list 1 2 3))))
   (is string=
       "919293"
       (if-test-helper "{% set x = 9 %}{% for item in seq %}{{ x }}{% set x = item %}{{ x }}{% endfor %}"
-		      (list 'x 0 'seq (list 1 2 3)))))
+                      (list 'x 0 'seq (list 1 2 3)))))
 
 ;;; syntax
 
@@ -582,14 +582,14 @@
   (is string=
       "42|42"
       (if-test-helper "{{ foo.bar }}|{{ foo['bar'] }}"
-		      (list 'foo (serapeum:dict "bar" 42)))))
+                      (list 'foo (serapeum:dict "bar" 42)))))
 
 (define-test syntax-subscript
   :parent syntax
   (is string=
       "0|2"
       (if-test-helper "{{ foo[0] }}|{{ foo[-1] }}"
-		      (list 'foo (list 0 1 2)))))
+                      (list 'foo (list 0 1 2)))))
 
 ;; tuple
 
@@ -638,8 +638,8 @@
   :parent syntax
   (skip "TODO do we really want to support this?"
     (is string=
-	"1|1"
-	(if-test-helper "{{ [1, 2, 3].0 }}|{{ [[1]].0.0 }}"))))
+        "1|1"
+        (if-test-helper "{{ [1, 2, 3].0 }}|{{ [[1]].0.0 }}"))))
 
 (define-test syntax-conditional-expression
   :parent syntax
@@ -660,8 +660,8 @@
   :parent syntax
   (skip "TODO related to binding of filter/test?"
     (is string=
-	"True"
-	(if-test-helper "{{ 42 is string or 42 is number }}")))
+        "True"
+        (if-test-helper "{{ 42 is string or 42 is number }}")))
   (fail (if-test-helper "{{ foo is string is sequence }}")))
 
 (define-test syntax-string-concatenation
@@ -675,7 +675,7 @@
   (is string=
       "False"
       (if-test-helper "{{ not 42 in bar }}"
-		      (list 'bar (alexandria:iota 100)))))
+                      (list 'bar (alexandria:iota 100)))))
 
 (define-test syntax-operator-precedence
   :parent syntax
@@ -688,7 +688,7 @@
   (is string=
       "eggs"
       (if-test-helper "{{ foo[1, 2] }}"
-		      (list 'foo (serapeum:dict '(1 2) "eggs")))))
+                      (list 'foo (serapeum:dict '(1 2) "eggs")))))
 
 (define-test syntax-raw
   :parent syntax
@@ -707,12 +707,12 @@
   (is string=
       "-42"
       (if-test-helper "{{ -foo['bar'] }}"
-		      (list 'foo (serapeum:dict "bar" 42))))
+                      (list 'foo (serapeum:dict "bar" 42))))
   (skip "TODO Jinja syntax reverses power and unary"
     (is string=
       "42"
       (if-test-helper "{{ -foo[\"bar\"]|abs }}"
-		      (list 'foo (serapeum:dict "bar" 42))))))
+                      (list 'foo (serapeum:dict "bar" 42))))))
 
 ;;; lstrip-blocks
 
@@ -725,69 +725,69 @@
   (is string=
       #?"\n"
       (let ((ginjish-compiler::*lstrip-blocks* t)
-	    (ginjish-compiler::*trim-blocks* nil))
-	(if-test-helper #?"    {% if True %}\n    {% endif %}"))))
+            (ginjish-compiler::*trim-blocks* nil))
+        (if-test-helper #?"    {% if True %}\n    {% endif %}"))))
 
 (define-test lstrip-trim
   :parent lstrip-blocks
   (is string=
       ""
       (let ((ginjish-compiler::*lstrip-blocks* t)
-	    (ginjish-compiler::*trim-blocks* t))
-	(if-test-helper #?"    {% if True %}\n    {% endif %}"))))
+            (ginjish-compiler::*trim-blocks* t))
+        (if-test-helper #?"    {% if True %}\n    {% endif %}"))))
 
 (define-test lstrip-no-lstrip
   :parent lstrip-blocks
   (is string=
       #?"    \n    "
       (let ((ginjish-compiler::*lstrip-blocks* nil)
-	    (ginjish-compiler::*trim-blocks* nil))
-	(if-test-helper #?"    {% if True %}\n    {% endif %}"))))
+            (ginjish-compiler::*trim-blocks* nil))
+        (if-test-helper #?"    {% if True %}\n    {% endif %}"))))
 
 (define-test lstrip-blocks-false-with-no-lstrip
   :parent lstrip-blocks
   (is string=
       #?"    \n    "
       (let ((ginjish-compiler::*lstrip-blocks* nil)
-	    (ginjish-compiler::*trim-blocks* nil))
-	(if-test-helper #?"    {% if True %}\n    {% endif %}")))
+            (ginjish-compiler::*trim-blocks* nil))
+        (if-test-helper #?"    {% if True %}\n    {% endif %}")))
   (is string=
       #?"    \n    "
       (let ((ginjish-compiler::*lstrip-blocks* nil)
-	    (ginjish-compiler::*trim-blocks* nil))
-	(if-test-helper #?"    {%+ if True %}\n    {% endif %}"))))
+            (ginjish-compiler::*trim-blocks* nil))
+        (if-test-helper #?"    {%+ if True %}\n    {% endif %}"))))
 
 (define-test lstrip-endline
   :parent lstrip-blocks
   (is string=
       #?"    hello\n    goodbye"
       (let ((ginjish-compiler::*lstrip-blocks* t)
-	    (ginjish-compiler::*trim-blocks* nil))
-	(if-test-helper #?"    hello{% if True %}\n    goodbye{% endif %}"))))
+            (ginjish-compiler::*trim-blocks* nil))
+        (if-test-helper #?"    hello{% if True %}\n    goodbye{% endif %}"))))
 
 (define-test lstrip-inline
   :parent lstrip-blocks
   (is string=
       "hello    "
       (let ((ginjish-compiler::*lstrip-blocks* t)
-	    (ginjish-compiler::*trim-blocks* nil))
-	(if-test-helper #?"    {% if True %}hello    {% endif %}"))))
+            (ginjish-compiler::*trim-blocks* nil))
+        (if-test-helper #?"    {% if True %}hello    {% endif %}"))))
 
 (define-test lstrip-nested
   :parent lstrip-blocks
   (is string=
       "a b c "
       (let ((ginjish-compiler::*lstrip-blocks* t)
-	    (ginjish-compiler::*trim-blocks* nil))
-	(if-test-helper "    {% if True %}a {% if True %}b {% endif %}c {% endif %}"))))
+            (ginjish-compiler::*trim-blocks* nil))
+        (if-test-helper "    {% if True %}a {% if True %}b {% endif %}c {% endif %}"))))
 
 (define-test lstrip-left-chars
   :parent lstrip-blocks
   (is string=
       #?"    abc \n        hello"
       (let ((ginjish-compiler::*lstrip-blocks* t)
-	    (ginjish-compiler::*trim-blocks* nil))
-	(if-test-helper "    abc {% if True %}
+            (ginjish-compiler::*trim-blocks* nil))
+        (if-test-helper "    abc {% if True %}
         hello{% endif %}"))))
 
 (define-test lstrip-embedded-strings
@@ -795,24 +795,24 @@
   (is string=
       " {% str %} "
       (let ((ginjish-compiler::*lstrip-blocks* t)
-	    (ginjish-compiler::*trim-blocks* nil))
-	(if-test-helper "    {% set x = \" {% str %} \" %}{{ x }}"))))
+            (ginjish-compiler::*trim-blocks* nil))
+        (if-test-helper "    {% set x = \" {% str %} \" %}{{ x }}"))))
 
 (define-test lstrip-preserve-leading-newlines
   :parent lstrip-blocks
   (is string=
       #?"\n\n\n"
       (let ((ginjish-compiler::*lstrip-blocks* t)
-	    (ginjish-compiler::*trim-blocks* nil))
-	(if-test-helper #?"\n\n\n{% set hello = 1 %}"))))
+            (ginjish-compiler::*trim-blocks* nil))
+        (if-test-helper #?"\n\n\n{% set hello = 1 %}"))))
 
 (define-test lstrip-comment
   :parent lstrip-blocks
   (is string=
       #?"\nhello\n"
       (let ((ginjish-compiler::*lstrip-blocks* t)
-	    (ginjish-compiler::*trim-blocks* nil))
-	(if-test-helper "    {# if True #}
+            (ginjish-compiler::*trim-blocks* nil))
+        (if-test-helper "    {# if True #}
 hello
     {#endif#}"))))
 
@@ -821,96 +821,94 @@ hello
   (is string=
       "hello    "
       (ginjish-grammar::with-delimiters
-	  ("<%" "%>" "${" "}" "<%#" "%>")
-	(let ((ginjish-compiler::*lstrip-blocks* t)
-	      (ginjish-compiler::*trim-blocks* t))
-	  (if-test-helper "    <% if True %>hello    <% endif %>")))))
+          ("<%" "%>" "${" "}" "<%#" "%>")
+        (let ((ginjish-compiler::*lstrip-blocks* t)
+              (ginjish-compiler::*trim-blocks* t))
+          (if-test-helper "    <% if True %>hello    <% endif %>")))))
 
 (define-test lstrip-angle-bracket-comment
   :parent lstrip-blocks
   (is string=
       "hello    "
       (ginjish-grammar::with-delimiters
-	  ("<%" "%>" "${" "}" "<%#" "%>")
-	(let ((ginjish-compiler::*lstrip-blocks* t)
-	      (ginjish-compiler::*trim-blocks* t))
-	  (if-test-helper "    <%# if True %>hello    <%# endif %>")))))
+          ("<%" "%>" "${" "}" "<%#" "%>")
+        (let ((ginjish-compiler::*lstrip-blocks* t)
+              (ginjish-compiler::*trim-blocks* t))
+          (if-test-helper "    <%# if True %>hello    <%# endif %>")))))
 
 (define-test lstrip-php-syntax-with-manual
   :parent lstrip-blocks
   (is string=
       "01234"
       (ginjish-grammar::with-delimiters
-	  ("<?" "?>" "<?=" "?>" "<!--" "-->")
-	(let ((ginjish-compiler::*lstrip-blocks* t)
-	      (ginjish-compiler::*trim-blocks* t))
-	  (if-test-helper "<!-- I'm a comment, I'm not interesting -->
+          ("<?" "?>" "<?=" "?>" "<!--" "-->")
+        (let ((ginjish-compiler::*lstrip-blocks* t)
+              (ginjish-compiler::*trim-blocks* t))
+          (if-test-helper "<!-- I'm a comment, I'm not interesting -->
     <? for item in seq -?>
         <?= item ?>
     <?- endfor ?>"
-			  (list 'seq (alexandria:iota 5)))))))
+                          (list 'seq (alexandria:iota 5)))))))
 
 (define-test lstrip-erb-syntax-with-manual
   :parent lstrip-blocks
   (is string=
       "01234"
       (ginjish-grammar::with-delimiters
-	  ("<%" "%>" "<%=" "%>" "<%#" "%>")
-	(let ((ginjish-compiler::*lstrip-blocks* t)
-	      (ginjish-compiler::*trim-blocks* t))
-	  (if-test-helper "<%# I'm a comment, I'm not interesting -%>
+          ("<%" "%>" "<%=" "%>" "<%#" "%>")
+        (let ((ginjish-compiler::*lstrip-blocks* t)
+              (ginjish-compiler::*trim-blocks* t))
+          (if-test-helper "<%# I'm a comment, I'm not interesting -%>
     <% for item in seq -%>
         <%= item %>
     <%- endfor %>"
-			  (list 'seq (alexandria:iota 5)))))))
+                          (list 'seq (alexandria:iota 5)))))))
 
 (define-test lstrip-blocks-outside-with-new-line
   :parent lstrip-blocks
   (is string=
       #?"(\na=1 b=2 \n  )"
       (let ((ginjish-compiler::*lstrip-blocks* t)
-	    (ginjish-compiler::*trim-blocks* nil))
-	(if-test-helper #?"  {% if kvs %}(\n   {% for k, v in kvs %}{{ k }}={{ v }} {% endfor %}\n  ){% endif %}"
-			(list 'kvs '(("a"  1) ("b"  2)))))))
+            (ginjish-compiler::*trim-blocks* nil))
+        (if-test-helper #?"  {% if kvs %}(\n   {% for k, v in kvs %}{{ k }}={{ v }} {% endfor %}\n  ){% endif %}"
+                        (list 'kvs '(("a"  1) ("b"  2)))))))
 
 (define-test lstrip-trim-blocks-outside-with-new-line
   :parent lstrip-blocks
   (is string=
       #?"(\na=1 b=2   )"
       (let ((ginjish-compiler::*lstrip-blocks* t)
-	    (ginjish-compiler::*trim-blocks* t))
-	(if-test-helper #?"  {% if kvs %}(\n   {% for k, v in kvs %}{{ k }}={{ v }} {% endfor %}\n  ){% endif %}"
-			(list 'kvs '(("a"  1) ("b"  2)))))))
+            (ginjish-compiler::*trim-blocks* t))
+        (if-test-helper #?"  {% if kvs %}(\n   {% for k, v in kvs %}{{ k }}={{ v }} {% endfor %}\n  ){% endif %}"
+                        (list 'kvs '(("a"  1) ("b"  2)))))))
 
 (define-test lstrip-blocks-inside-with-new-line
   :parent lstrip-blocks
   (is string=
       #?"  (\na=1 b=2 \n)"
       (let ((ginjish-compiler::*lstrip-blocks* t)
-	    (ginjish-compiler::*trim-blocks* nil))
-	(if-test-helper #?"  ({% if kvs %}\n   {% for k, v in kvs %}{{ k }}={{ v }} {% endfor %}\n  {% endif %})"
-			(list 'kvs '(("a"  1) ("b"  2)))))))
+            (ginjish-compiler::*trim-blocks* nil))
+        (if-test-helper #?"  ({% if kvs %}\n   {% for k, v in kvs %}{{ k }}={{ v }} {% endfor %}\n  {% endif %})"
+                        (list 'kvs '(("a"  1) ("b"  2)))))))
 
 (define-test lstrip-trim-blocks-inside-with-new-line
   :parent lstrip-blocks
   (is string=
       #?"  (a=1 b=2 )"
       (let ((ginjish-compiler::*lstrip-blocks* t)
-	    (ginjish-compiler::*trim-blocks* t))
-	(if-test-helper #?"  ({% if kvs %}\n   {% for k, v in kvs %}{{ k }}={{ v }} {% endfor %}\n  {% endif %})"
-			(list 'kvs '(("a"  1) ("b"  2)))))))
+            (ginjish-compiler::*trim-blocks* t))
+        (if-test-helper #?"  ({% if kvs %}\n   {% for k, v in kvs %}{{ k }}={{ v }} {% endfor %}\n  {% endif %})"
+                        (list 'kvs '(("a"  1) ("b"  2)))))))
 
 (define-test lstrip-blocks-without-new-line
   :parent lstrip-blocks
   (is string=
       "   a=1 b=2   "
       (let ((ginjish-compiler::*lstrip-blocks* t)
-	    (ginjish-compiler::*trim-blocks* nil))
-	(if-test-helper "  {% if kvs %}   {% for k, v in kvs %}{{ k }}={{ v }} {% endfor %}  {% endif %}"
-			(list 'kvs '(("a"  1) ("b"  2)))))))
+            (ginjish-compiler::*trim-blocks* nil))
+        (if-test-helper "  {% if kvs %}   {% for k, v in kvs %}{{ k }}={{ v }} {% endfor %}  {% endif %}"
+                        (list 'kvs '(("a"  1) ("b"  2)))))))
 
-(cl-interpol:disable-interpol-syntax)
-       
 ;;; filters
 
 (define-test filters)
@@ -932,40 +930,40 @@ hello
   (is string=
       "no|False|no|yes"
       (if-test-helper "{{ missing|default('no') }}|{{ false|default('no') }}|{{ false|default('no',true) }}|{{ given|default('no') }}"
-		      (list 'given "yes"))))
+                      (list 'given "yes"))))
 
 (define-test filters-dictsort
   :parent filters
   (is string=
       "[('aa', 0), ('AB', 3), ('b', 1), ('c', 2)]"
       (if-test-helper "{{ foo|dictsort }}"
-		      (list 'foo (serapeum:dict "aa" 0 "b" 1 "c" 2 "AB" 3))))
+                      (list 'foo (serapeum:dict "aa" 0 "b" 1 "c" 2 "AB" 3))))
   (is string=
       "[('AB', 3), ('aa', 0), ('b', 1), ('c', 2)]"
       (if-test-helper "{{ foo|dictsort(case_sensitive=True) }}"
-		      (list 'foo (serapeum:dict "aa" 0 "b" 1 "c" 2 "AB" 3))))
+                      (list 'foo (serapeum:dict "aa" 0 "b" 1 "c" 2 "AB" 3))))
   (is string=
       "[('aa', 0), ('b', 1), ('c', 2), ('AB', 3)]"
       (if-test-helper "{{ foo|dictsort(by='value') }}"
-		      (list 'foo (serapeum:dict "aa" 0 "b" 1 "c" 2 "AB" 3))))
+                      (list 'foo (serapeum:dict "aa" 0 "b" 1 "c" 2 "AB" 3))))
   (is string=
       "[('c', 2), ('b', 1), ('AB', 3), ('aa', 0)]"
       (if-test-helper "{{ foo|dictsort(reverse=True) }}"
-		      (list 'foo (serapeum:dict "aa" 0 "b" 1 "c" 2 "AB" 3)))))
+                      (list 'foo (serapeum:dict "aa" 0 "b" 1 "c" 2 "AB" 3)))))
 
 (define-test filters-batch
   :parent filters
   (is string=
       "[[0, 1, 2], [3, 4, 5], [6, 7, 8], [9]]|[[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 'X', 'X']]"
       (if-test-helper "{{ foo|batch(3)|list }}|{{ foo|batch(3, 'X')|list }}"
-		      (list 'foo (alexandria:iota 10)))))
+                      (list 'foo (alexandria:iota 10)))))
 
 (define-test filters-slice
   :parent filters
   (is string=
       "[[0, 1, 2, 3], [4, 5, 6], [7, 8, 9]]|[[0, 1, 2, 3], [4, 5, 6, 'X'], [7, 8, 9, 'X']]"
       (if-test-helper "{{ foo|slice(3)|list }}|{{ foo|slice(3, 'X')|list }}"
-		      (list 'foo (alexandria:iota 10)))))
+                      (list 'foo (alexandria:iota 10)))))
 
 (define-test filters-escape
   :parent filters
@@ -978,22 +976,22 @@ hello
   (is string=
       "..stays.."
       (if-test-helper "{{ foo|trim }}"
-		      (list 'foo "  ..stays..")))
+                      (list 'foo "  ..stays..")))
   (is string=
       "  ..stays"
       (if-test-helper "{{ foo|trim('.') }}"
-		      (list 'foo "  ..stays..")))
+                      (list 'foo "  ..stays..")))
   (is string=
       "stays"
       (if-test-helper "{{ foo|trim(' .') }}"
-		      (list 'foo "  ..stays.."))))
+                      (list 'foo "  ..stays.."))))
 
 (define-test filters-striptags
   :parent filters
   (is string=
       "just a small example link to a webpage"
       (if-test-helper "{{ foo|striptags }}"
-		      (list 'foo "  <p>just a small   
+                      (list 'foo "  <p>just a small   
  <a href=\"#\">example</a> link</p>
 <p>to a webpage</p> <!-- <p>and some commented stuff</p> -->"))))
 
@@ -1002,34 +1000,34 @@ hello
   (is string=
       "100 Bytes|1.0 kB|1.0 MB|1.0 GB|1.0 TB|100 Bytes|1000 Bytes|976.6 KiB|953.7 MiB|931.3 GiB"
       (if-test-helper (concatenate 'string
-				    "{{ 100|filesizeformat }}|"
-				    "{{ 1000|filesizeformat }}|"
-				    "{{ 1000000|filesizeformat }}|"
-				    "{{ 1000000000|filesizeformat }}|"
-				    "{{ 1000000000000|filesizeformat }}|"
-				    "{{ 100|filesizeformat(true) }}|"
-				    "{{ 1000|filesizeformat(true) }}|"
-				    "{{ 1000000|filesizeformat(true) }}|"
-				    "{{ 1000000000|filesizeformat(true) }}|"
-				    "{{ 1000000000000|filesizeformat(true) }}")))
+                                    "{{ 100|filesizeformat }}|"
+                                    "{{ 1000|filesizeformat }}|"
+                                    "{{ 1000000|filesizeformat }}|"
+                                    "{{ 1000000000|filesizeformat }}|"
+                                    "{{ 1000000000000|filesizeformat }}|"
+                                    "{{ 100|filesizeformat(true) }}|"
+                                    "{{ 1000|filesizeformat(true) }}|"
+                                    "{{ 1000000|filesizeformat(true) }}|"
+                                    "{{ 1000000000|filesizeformat(true) }}|"
+                                    "{{ 1000000000000|filesizeformat(true) }}")))
   (is string=
       "300 Bytes|3.0 kB|3.0 MB|3.0 GB|3.0 TB|300 Bytes|2.9 KiB|2.9 MiB"
       (if-test-helper (concatenate 'string
-				   "{{ 300|filesizeformat }}|"
-				   "{{ 3000|filesizeformat }}|"
-				   "{{ 3000000|filesizeformat }}|"
-				   "{{ 3000000000|filesizeformat }}|"
-				   "{{ 3000000000000|filesizeformat }}|"
-				   "{{ 300|filesizeformat(true) }}|"
-				   "{{ 3000|filesizeformat(true) }}|"
-				   "{{ 3000000|filesizeformat(true) }}"))))
+                                   "{{ 300|filesizeformat }}|"
+                                   "{{ 3000|filesizeformat }}|"
+                                   "{{ 3000000|filesizeformat }}|"
+                                   "{{ 3000000000|filesizeformat }}|"
+                                   "{{ 3000000000000|filesizeformat }}|"
+                                   "{{ 300|filesizeformat(true) }}|"
+                                   "{{ 3000|filesizeformat(true) }}|"
+                                   "{{ 3000000|filesizeformat(true) }}"))))
 
 (define-test filters-first
   :parent filters
   (is string=
       "0"
       (if-test-helper "{{ foo|first }}"
-		      (list 'foo (alexandria:iota 10)))))
+                      (list 'foo (alexandria:iota 10)))))
 
 (define-test filters-float
   :parent filters
@@ -1060,19 +1058,19 @@ hello
   (is string=
       #?"\n  foo bar\n  \"baz\"\n"
       (if-test-helper "{{ foo|indent(width=2) }}"
-		      (list 'foo #?"\nfoo bar\n\"baz\"\n")))
+                      (list 'foo #?"\nfoo bar\n\"baz\"\n")))
   (is string=
       #?"  \n  foo bar\n  \"baz\"\n"
       (if-test-helper "{{ foo|indent(width=2, first=true) }}"
-		      (list 'foo #?"\nfoo bar\n\"baz\"\n")))
+                      (list 'foo #?"\nfoo bar\n\"baz\"\n")))
   (is string=
       #?"\n  foo bar\n  \"baz\"\n  "
       (if-test-helper "{{ foo|indent(width=2, blank=true) }}"
-		      (list 'foo #?"\nfoo bar\n\"baz\"\n")))
+                      (list 'foo #?"\nfoo bar\n\"baz\"\n")))
   (is string=
       #?"  \n  foo bar\n  \"baz\"\n  "
       (if-test-helper "{{ foo|indent(width=2, blank=true, first=true) }}"
-		      (list 'foo #?"\nfoo bar\n\"baz\"\n"))))
+                      (list 'foo #?"\nfoo bar\n\"baz\"\n"))))
 
 (define-test filters-indent
   :parent filters
@@ -1085,6 +1083,10 @@ hello
   (is string=
       "jinja"
       (if-test-helper "{{ 'jinja'|indent(blank=true) }}")))
+
+(cl-interpol:disable-interpol-syntax)
+       
+
 
 ;;; builtins
 

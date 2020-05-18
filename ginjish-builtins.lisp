@@ -4,27 +4,27 @@
 
 (defmacro define-filter (name args &body body)
   (let* ((filter-package (find-package "GINJISH.FILTERS"))
-	 (function-name (intern (symbol-name name) filter-package)))
+         (function-name (intern (symbol-name name) filter-package)))
     (multiple-value-bind (body decls docstring)
-	(alexandria:parse-body body :documentation t)
+        (alexandria:parse-body body :documentation t)
       `(progn
-	 (defun ,function-name (,@args) ; FIXME error handling
-	   ,@(serapeum:unsplice docstring)
-	   ,@decls
-	   ,@body)
-	 (export ',function-name ,filter-package)))))
+         (defun ,function-name (,@args) ; FIXME error handling
+           ,@(serapeum:unsplice docstring)
+           ,@decls
+           ,@body)
+         (export ',function-name ,filter-package)))))
 
 (defmacro define-test (name args &body body)
   (let* ((test-package (find-package "GINJISH.TESTS"))
-	 (function-name (intern (symbol-name name) test-package)))
+         (function-name (intern (symbol-name name) test-package)))
     (multiple-value-bind (body decls docstring)
-	(alexandria:parse-body body :documentation t)
+        (alexandria:parse-body body :documentation t)
       `(progn
-	 (defun ,function-name (,@args) ; FIXME error handling
-	   ,@(serapeum:unsplice docstring)
-	   ,@decls
-	   ,@body)
-	 (export ',function-name ,test-package)))))
+         (defun ,function-name (,@args) ; FIXME error handling
+           ,@(serapeum:unsplice docstring)
+           ,@decls
+           ,@body)
+         (export ',function-name ,test-package)))))
 
 ;;; filters
 
@@ -99,14 +99,14 @@ tojson
 
 (defun do-batch (seq n &optional fill)
   (let ((batches (serapeum:batches seq n))
-	(rem (rem (length seq) n)))
+        (rem (rem (length seq) n)))
     (if (and fill (not (zerop rem)))
-	(let ((last (alexandria:lastcar batches))
-	      (new (make-sequence-like seq n :initial-element fill)))
-	  (dotimes (i rem)
-	    (setf (elt new i) (elt last i)))
-	  (append (butlast batches) (list new)))
-	batches)))
+        (let ((last (alexandria:lastcar batches))
+              (new (make-sequence-like seq n :initial-element fill)))
+          (dotimes (i rem)
+            (setf (elt new i) (elt last i)))
+          (append (butlast batches) (list new)))
+        batches)))
 
 (define-filter batch (seq n &optional fill)
   (do-batch seq n fill))
@@ -114,15 +114,15 @@ tojson
 (defun do-slice (seq n &optional fill)
   (let ((length (length seq)))
     (multiple-value-bind (normal-bucket-size oversized-buckets)
-	(truncate length n)
+        (truncate length n)
       (let ((bucket-sizes (make-list n :initial-element normal-bucket-size)))
-	(dotimes (i oversized-buckets)
-	  (incf (elt bucket-sizes i)))
-	(loop for start = 0 then (+ start delta)
-	   for delta in bucket-sizes
-	   collect (if (and fill (= delta normal-bucket-size))
-		       (append (subseq seq start (+ start delta)) (list fill))
-		       (subseq seq start (+ start delta))))))))
+        (dotimes (i oversized-buckets)
+          (incf (elt bucket-sizes i)))
+        (loop for start = 0 then (+ start delta)
+           for delta in bucket-sizes
+           collect (if (and fill (= delta normal-bucket-size))
+                       (append (subseq seq start (+ start delta)) (list fill))
+                       (subseq seq start (+ start delta))))))))
 
 (define-filter slice (seq n &optional fill)
   (do-slice seq n fill))
@@ -134,9 +134,9 @@ tojson
 
 (defun do-center (s &optional (width 80))
   (let* ((len (length s))
-	 (remainder (- width len))
-	 (leading (floor remainder 2))
-	 (total (+ leading len)))
+         (remainder (- width len))
+         (leading (floor remainder 2))
+         (total (+ leading len)))
     (serapeum:pad-end (serapeum:pad-start s total) width)))
 
 (define-filter center (s &optional (width 80))
@@ -189,11 +189,11 @@ tojson
 (defgeneric do-dictsort (dict &key case-sensitive by reverse)
   (:method ((dict hash-table) &key case-sensitive (by :key) reverse) ; FIXME alist / plist
     (let ((alist (alexandria:hash-table-alist dict))
-	  (key (ecase by (:key #'car)(:value #'cdr)))
-	  (pred (cond ((and case-sensitive reverse) #'thing>)
-		      (case-sensitive #'thing<)
-		      (reverse #'thing-greaterp)
-		      (t #'thing-lessp))))
+          (key (ecase by (:key #'car)(:value #'cdr)))
+          (pred (cond ((and case-sensitive reverse) #'thing>)
+                      (case-sensitive #'thing<)
+                      (reverse #'thing-greaterp)
+                      (t #'thing-lessp))))
       (sort alist pred :key key))))
 
 (defun ensure-keyword (thing) ; FIXME non-strings; general calling convention
@@ -203,8 +203,8 @@ tojson
 
 (define-filter dictsort (dict &key case_sensitive (by :key) reverse)
   (do-dictsort dict :case-sensitive case_sensitive
-	       :by (ensure-keyword by)
-	       :reverse reverse))
+               :by (ensure-keyword by)
+               :reverse reverse))
 
 (defparameter *escape-table*
   (serapeum:dict 'eql
@@ -231,13 +231,13 @@ tojson
     (serapeum:trim-whitespace
      (serapeum:collapse-whitespace
       (with-output-to-string (stream)
-	(labels ((r (node)
-		   (loop for child across (plump:children node)
-		      do (typecase child
-			   (plump:comment nil)
-			  (plump:textual-node (write-string (plump:text child) stream))
-			  (plump:nesting-node (r child))))))
-	  (r root)))))))
+        (labels ((r (node)
+                   (loop for child across (plump:children node)
+                      do (typecase child
+                           (plump:comment nil)
+                          (plump:textual-node (write-string (plump:text child) stream))
+                          (plump:nesting-node (r child))))))
+          (r root)))))))
 
 (define-filter striptags (s)
   (do-striptags s))
@@ -250,9 +250,9 @@ tojson
 
 (defun do-float (n &optional (default 0.0d0))
   (handler-bind ((type-error
-		  #'(lambda (condition)
-		      (declare (ignore condition))
-		      (return-from do-float default))))
+                  #'(lambda (condition)
+                      (declare (ignore condition))
+                      (return-from do-float default))))
     (when (stringp n)
       (setf n (esrap:parse 'ginjish-grammar::number n :junk-allowed t)))
     (float n 0d0))) ; FIXME double?
@@ -271,7 +271,7 @@ tojson
 
 (defun do-indent (s &optional (width 4) first blank)
   (let ((lines (split-sequence:split-sequence #\Newline s))
-	(padding (make-string width :initial-element #\Space)))
+        (padding (make-string width :initial-element #\Space)))
     (loop for line in lines
        for firstline = t then nil
        if (and firstline (not first))
@@ -280,7 +280,7 @@ tojson
        collect line into results
        else
        collect (concatenate 'string padding line) into results
-	 finally (return (serapeum:string-join results #\Newline)))))
+         finally (return (serapeum:string-join results #\Newline)))))
 
 (define-filter indent (s &key (width 4) first blank)
   (do-indent s width first blank))
@@ -470,20 +470,20 @@ namespace
 (defun range (x &optional y z)
   (let (start stop step)
     (cond (z (setf start x stop y step z))
-	  (y (setf start x stop y step 1))
-	  (t (setf start 0 stop x step 1)))
+          (y (setf start x stop y step 1))
+          (t (setf start 0 stop x step 1)))
     (coerce (serapeum:range start stop step) 'list)))
 
 (defun lipsum (&key (paras 5) (html t) (min 20) (max 100))
   (let ((paragraphs
-	 (loop repeat paras
-	    for prologue = t then nil
-	    collecting (lorem-ipsum:paragraph
-			:prologue prologue
-			:word-count (+ 1 min (random (- max min)))))))
+         (loop repeat paras
+            for prologue = t then nil
+            collecting (lorem-ipsum:paragraph
+                        :prologue prologue
+                        :word-count (+ 1 min (random (- max min)))))))
     (if html
-	(format nil "~{<p>~A</p>~%~}" paragraphs)
-	(format nil "~{~A~%~}" paragraphs))))
+        (format nil "~{<p>~A</p>~%~}" paragraphs)
+        (format nil "~{~A~%~}" paragraphs))))
 
 (defun dict (&rest items)
   (apply #'serapeum:dict items))
@@ -501,18 +501,18 @@ namespace
     (incf (index cycler))
     (prog1 (current cycler)
       (setf (current cycler)
-	    (elt (items cycler)
-		 (mod (index cycler)
-		      (length (items cycler))))))))
+            (elt (items cycler)
+                 (mod (index cycler)
+                      (length (items cycler))))))))
 
 (defgeneric reset (cycler)
   (:method ((cycler cycler))
     (setf (index cycler) 0
-	  (current cycler) (first (items cycler)))))
+          (current cycler) (first (items cycler)))))
 
 (defun joiner (&optional (sep ","))
   (let ((first t))
     (lambda ()
       (if first
-	  (progn (setf first nil) "")
-	  sep))))
+          (progn (setf first nil) "")
+          sep))))
