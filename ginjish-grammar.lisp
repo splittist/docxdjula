@@ -640,7 +640,7 @@
                       t-set
                       ))
 
-(defrule t-raw (and t-raw-start raw-content t-raw-end)
+(defrule t-raw (and t-raw-start raw-content t-raw-end) ; FIXME trailing ws?
   (:lambda (r)
     `(:raw ,(second r))))
 
@@ -802,6 +802,30 @@ if_stmt ::=  "if" assignment_expression ":" suite
 
     
 ;; macro / call
+
+(defrule t-macro (and t-macro-start suite t-macro-end)
+  (:lambda (m)
+    `(:macro ,@(first m) ,(second m))))
+
+(defrule t-macro-start (and (and t-statement-start ws* "macro" ws)
+                            name
+                            (and "(" (? parameter-list) ")")
+                            (and ws* t-statement-end))
+  (:lambda (m)
+    (list (second m) (second (third m)))))
+
+(defrule t-macro-end (and t-statement-start ws* "endmacro" ws* t-statement-end)
+  (:constant nil))
+
+(defrule parameter-list (and parameter
+                             (* (and (and ws* "," ws*) parameter)))
+  (:lambda (l)
+    `(,(first l) ,@(mapcar #'second (second l)))))
+
+(defrule parameter (and name (? (and (and ws* "=" ws*) expression)))
+  (:lambda (p)
+    (list (first p) (second (second p)) (if (first (second p)) t nil))))
+
 ;; import
 
 (defrule t-import (and (and t-statement-start ws* "import" ws*)

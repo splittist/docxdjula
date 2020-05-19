@@ -686,8 +686,6 @@
       (get-slice (funcall primary stream)
                  (funcall slice stream)))))
 
-;;; TODO :call
-
 (defmethod compile-tagged-element ((tag (eql :raw)) rest)
   (alexandria:named-lambda :raw (stream)
     (princ (first rest) stream)))
@@ -760,6 +758,51 @@
            finally
              (let ((*context* (make-context *context* scope)))
                (funcall suite stream)))))))
+
+(defun split-parameters (parameters)
+  (loop with start-keywords = nil
+           for (name default supplied) in parameters
+           when supplied do (setf start-keywords t)
+           if start-keywords
+           collect (or (and default
+                            (list name
+                                  (let ((s (make-string-output-stream))) ; FIXME kludge
+                                    (funcall (compile-element default) s))))
+                       name)
+           into keywords
+           else collect name into positionals
+             finally (return (list positionals keywords))))
+
+(defmethod compile-tagged-element ((tag (eql :macro)) rest)
+    (let ((name (first rest))
+          (parameters (second rest))
+          (body (compile-element (third rest))))
+      (destructuring-bind (positionals keywords)
+          (split-parameters parameters)
+        (setf (load-value *context* name)
+              (lambda (&rest args)
+                (with-output-to-string (stream)
+                  (let ((scope (make-hash-table :test 'equal)))
+                    (loop for param in positionals
+                       for arg in args
+                       do (setf (load-value scope param)
+                                (funcall arg stream)))
+                    (when keywords
+                      (loop for (name value) in (subseq args (length positionals))
+                         do (setf (load-value scope name)
+                                  (if value
+                                      (funcall value stream)
+                                      (getf keywords name))))
+                      (let ((*context* (make-context *context* scope)))
+                        (print *context*)
+                        (funcall body stream))))))))))    
+
+(defun test-macro-foo (macro-string &optional args)
+  (let* ((*context* '())
+         (parse-tree (esrap:parse 'ginjish-grammar::t-macro macro-string)))
+    (compile-element parse-tree)
+    (apply (load-value *context* "foo") args)))
+
 
 (defgeneric to-list (thing) ; FIXME more general iterable?
   (:method (thing)
