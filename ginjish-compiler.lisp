@@ -773,6 +773,12 @@
            else collect name into positionals
              finally (return (list positionals keywords))))
 
+(defun getf-name (plist name)
+  (loop for (key val) on plist by #'cddr
+     when (name-equal name key)
+     do (return-from getf-name (values val t))
+     finally (return (values nil nil))))
+
 (defmethod compile-tagged-element ((tag (eql :macro)) rest)
     (let ((name (first rest))
           (parameters (second rest))
@@ -785,24 +791,15 @@
                   (let ((scope (make-hash-table :test 'equal)))
                     (loop for param in positionals
                        for arg in args
-                       do (setf (load-value scope param)
-                                (funcall arg stream)))
+                       do (setf (load-value scope param) arg))
                     (when keywords
-                      (loop for (name value) in (subseq args (length positionals))
+                      (loop with keyargs = (subseq args (length positionals))
+                         for (name value) in keywords
                          do (setf (load-value scope name)
-                                  (if value
-                                      (funcall value stream)
-                                      (getf keywords name))))
-                      (let ((*context* (make-context *context* scope)))
-                        (print *context*)
-                        (funcall body stream))))))))))    
-
-(defun test-macro-foo (macro-string &optional args)
-  (let* ((*context* '())
-         (parse-tree (esrap:parse 'ginjish-grammar::t-macro macro-string)))
-    (compile-element parse-tree)
-    (apply (load-value *context* "foo") args)))
-
+                                  (or (getf-name keyargs name) value))))
+                    (let ((*context* (make-context *context* scope)))
+                      (funcall body stream)))))))
+      (constantly nil)))
 
 (defgeneric to-list (thing) ; FIXME more general iterable?
   (:method (thing)

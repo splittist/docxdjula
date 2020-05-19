@@ -566,6 +566,20 @@
       (if-test-helper "{% set x = 9 %}{% for item in seq %}{{ x }}{% set x = item %}{{ x }}{% endfor %}"
                       (list 'x 0 'seq (list 1 2 3)))))
 
+;;; macro
+
+(define-test macro
+  :parent compiler)
+
+(define-test macro-simple
+  :parent macro
+  (is string=
+      "1,spam,eggs|2,spam,Ni|3,Ecki,eggs"
+      (if-test-helper "{% macro foo(bar,baz='spam',quux='eggs') %}{{bar}},{{baz}},{{quux}}{% endmacro %}{{ foo(1)}}|{{foo(2,quux='Ni')}}|{{foo(3,baz='Ecki')}}"))
+  (is string=
+      "27,4,2"
+      (if-test-helper "{% macro foo(bar,baz,quux) %}{{quux}},{{baz}},{{bar}}{% endmacro %}{{foo(1+1,2*2,3**3)}}")))
+
 ;;; syntax
 
 (define-test syntax

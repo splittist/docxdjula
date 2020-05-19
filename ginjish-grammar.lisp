@@ -635,6 +635,7 @@
                       t-import
                       t-from
                       t-with
+                      t-macro
                       t-autoescape
                       t-set-block
                       t-set
