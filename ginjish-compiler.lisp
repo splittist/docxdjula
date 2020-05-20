@@ -141,7 +141,7 @@
           `(load-value ,place ,key)))
 
 (defclass context ()
-  ((%map :initarg :map)
+  ((%map :initarg :map :reader context-map)
    (%parent :initarg :parent :initform nil)))
 
 (defmethod print-object ((object context) stream)
@@ -159,7 +159,7 @@
         (and %parent (load-value %parent key)))))
 
 (defmethod set-load-value ((map context) key value)
-  (setf (gethash key (slot-value map '%map))
+  (setf (load-value (slot-value map '%map) key)
         value)
   map)
 
@@ -759,6 +759,25 @@
              (let ((*context* (make-context *context* scope)))
                (funcall suite stream)))))))
 
+(defmethod compile-tagged-element ((tag (eql :include)) rest)
+  (let ((expr (compile-element (first rest)))
+        (ignore-missing (second rest))
+        (context (third rest)))
+    (alexandria:named-lambda :include (stream)
+      (let* ((candidates (funcall expr stream))
+             (compiled-template
+              (if (listp candidates)
+                  (loop for name in candidates 
+                     when (load-template *loader* name)
+                     return it)
+                  (load-template *loader* candidates))))
+        (unless (or compiled-template ignore-missing)
+          (error "Missing template: ~A" candidates))
+        (if context
+            (funcall compiled-template stream)
+            (let ((*context* nil))
+              (funcall compiled-template stream)))))))
+                                 
 (defun split-parameters (parameters)
   (loop with start-keywords = nil
            for (name default supplied) in parameters
@@ -869,15 +888,51 @@
 
 
 
-#|
+
 
 ;;; compilation and rendering
 
-(defclass template ()
-  ())
+(defvar *loader*)
+
+(defclass dict-loader ()
+  ((%dict :initarg :dict :initform (make-hash-table :test 'equal) :accessor template-dict)))
+
+(defmethod print-object ((object dict-loader) stream)
+  (print-unreadable-object (object stream :identity t :type t)
+    (format stream "(~D templates)" (hash-table-count (template-dict object)))))
+
+(defun make-dict-loader (&rest keys-vals)
+  (make-instance 'dict-loader
+                 :dict (apply #'serapeum:dict keys-vals)))
+
+(defgeneric load-template (loader name &key &allow-other-keys))
+
+(defmethod load-template ((dict-loader dict-loader) (name string) &key &allow-other-keys)
+  (let ((string (gethash name (template-dict dict-loader))))
+    (unless string (error "Missing template: ~A" name))
+    (compile-template-string string)))
+
+(defvar *blocks*)
+(defvar *linked-templates*)
+(defparameter *globals* (list "range" 'ginjish-builtins::range "lipsum" 'ginjish-builtins::lipsum))
+
+(defun compile-template-string (string)
+  (let* ((*blocks* '())
+         (*linked-templates* '())
+         (*context* (make-context *globals* (make-hash-table :test 'equal)))
+         (*autoescape* *autoescape*))
+    (let ((function (compile-element (esrap:parse 'ginjish-grammar::template string))))
+      (make-instance 'compiled-template
+                     :template-function function
+                     :blocks *blocks*
+                     :linked-templates *linked-templates*
+                     :top-level (context-map *context*)))))
 
 (defclass compiled-template ()
-  ((%template-function :initarg :template-function :accessor template-function))
+  ((%template-function :initarg :template-function :accessor template-function)
+   (%blocks :initarg :blocks :accessor template-blocks)
+   (%linked-templates :initarg :linked-templates :accessor template-linked-templates)
+   (%top-level :initarg :top-level :accessor template-top-level))
   (:metaclass closer-mop:funcallable-standard-class))
 
 (defmethod initialize-instance :after ((compiled-template compiled-template) &rest initargs)
@@ -886,15 +941,11 @@
    compiled-template
    (template-function compiled-template)))
 
-(defgeneric compile-template (template &key &allow-other-keys)
-  (:method ((string string) &key &allow-other-keys)
-    (let ((*autoescape* *autoescape*))
-      (let ((function (parse 'template string)))
-        (make-instance 'compiled-template :template-function function)))))
-
 (defgeneric render-template (template stream context &key &allow-other-keys)
-  (:method ((template compiled-template) stream (context context) &key &allow-other-keys)
-    (let ((*context* context))
-      (funcall template stream))))
+  (:method ((template compiled-template) stream context &key &allow-other-keys)
+    (serapeum:with-string (s stream)
+      (let* ((template-context (make-context *globals* (template-top-level template)))
+             (*context* (make-context template-context context)))
+        (funcall template s)))))
 
-|#
+
