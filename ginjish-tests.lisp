@@ -580,6 +580,63 @@
       "27,4,2"
       (if-test-helper "{% macro foo(bar,baz,quux) %}{{quux}},{{baz}},{{bar}}{% endmacro %}{{foo(1+1,2*2,3**3)}}")))
 
+;;; include
+
+(define-test include
+  :parent compiler)
+
+(define-test include-simple
+  :parent include
+  (is string=
+      "hello world"
+      (let ((ginjish-compiler::*loader* (ginjish-compiler::make-dict-loader "foo" "hello" "bar" "world")))
+        (ginjish-compiler::render-template
+         (ginjish-compiler::compile-template-string "{% include 'foo' %} {% include 'bar' %}") nil nil))))
+
+(define-test include-list
+  :parent include
+  (is string=
+      "hello world"
+      (let ((ginjish-compiler::*loader* (ginjish-compiler::make-dict-loader "foo" "hello" "bar" "world")))
+        (ginjish-compiler::render-template
+         (ginjish-compiler::compile-template-string "{% include 'foo' %} {% include ['bar','quux'] %}") nil nil))))
+
+(define-test include-missing
+  :parent include
+  (is string=
+      "hello world"
+      (let ((ginjish-compiler::*loader* (ginjish-compiler::make-dict-loader "foo" "hello" "bar" "world")))
+        (ginjish-compiler::render-template
+         (ginjish-compiler::compile-template-string "{% include 'foo' %} {% include ['quux','bar'] %}") nil nil)))
+  (fail
+   (let ((ginjish-compiler::*loader* (ginjish-compiler::make-dict-loader "foo" "hello" "bar" "world")))
+        (ginjish-compiler::render-template
+         (ginjish-compiler::compile-template-string "{% include 'foo' %} {% include 'quux' %}") nil nil)))
+  (is string=
+      "hello "
+      (let ((ginjish-compiler::*loader* (ginjish-compiler::make-dict-loader "foo" "hello" "bar" "world")))
+        (ginjish-compiler::render-template
+         (ginjish-compiler::compile-template-string "{% include 'foo' %} {% include 'quux' ignore missing %}") nil nil)))
+  (is string=
+      "hello "
+      (let ((ginjish-compiler::*loader* (ginjish-compiler::make-dict-loader "foo" "hello" "bar" "world")))
+        (ginjish-compiler::render-template
+         (ginjish-compiler::compile-template-string "{% include 'foo' %} {% include ['quux'] ignore missing %}") nil nil))))
+
+(define-test include-context
+  :parent include
+  (is string=
+      "hello world"
+      (let ((ginjish-compiler::*loader* (ginjish-compiler::make-dict-loader "foo" "{{ quux }}" "bar" "world")))
+        (ginjish-compiler::render-template
+         (ginjish-compiler::compile-template-string "{% include 'foo' %} {% include 'bar' %}") nil (list "quux" "hello"))))
+  (is string=
+      " world"
+      (let ((ginjish-compiler::*loader* (ginjish-compiler::make-dict-loader "foo" "{{ quux }}" "bar" "world")))
+        (ginjish-compiler::render-template
+         (ginjish-compiler::compile-template-string "{% include 'foo' without context %} {% include 'bar' %}") nil (list "quux" "hello")))))
+
+      
 ;;; syntax
 
 (define-test syntax

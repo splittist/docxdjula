@@ -771,12 +771,14 @@
                      when (load-template *loader* name)
                      return it)
                   (load-template *loader* candidates))))
-        (unless (or compiled-template ignore-missing)
-          (error "Missing template: ~A" candidates))
-        (if context
-            (funcall compiled-template stream)
-            (let ((*context* nil))
-              (funcall compiled-template stream)))))))
+        (if (null compiled-template)
+            (if ignore-missing
+                nil
+                (error "Missing template: ~A" candidates))
+            (if context
+                (funcall compiled-template stream)
+                (let ((*context* nil)) ; FIXME basic context with standard globals
+                  (funcall compiled-template stream))))))))
                                  
 (defun split-parameters (parameters)
   (loop with start-keywords = nil
@@ -909,8 +911,9 @@
 
 (defmethod load-template ((dict-loader dict-loader) (name string) &key &allow-other-keys)
   (let ((string (gethash name (template-dict dict-loader))))
-    (unless string (error "Missing template: ~A" name))
-    (compile-template-string string)))
+    (if string
+        (compile-template-string string)
+        nil)))
 
 (defvar *blocks*)
 (defvar *linked-templates*)
