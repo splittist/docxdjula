@@ -657,7 +657,130 @@
   :parent block-extends
   (is string=
       "hello world"
-      (block-test-helper "{% extends 'foo' %}{% block a %}hello{% endblock %}{% block b %}world{% endblock %}" nil "foo" "{% block a %}{% endblock %} {% block b %}{% endblock %}")))
+      (block-test-helper "{% extends 'foo' %}{% block a %}hello{% endblock %}{% block b %}world{% endblock %}" nil "foo" "{% block a %}{% endblock %} {% block b %}{% endblock %}"))
+  (is string=
+      "hello world"
+      (block-test-helper "{% extends 'foo' %}{% block a %}hello{% endblock %}{% block b %}world{% endblock %}" nil "foo" "{% block a %}goodbye{% endblock %} {% block b %}potato{% endblock %}"))
+  (is string=
+      "hello potato"
+      (block-test-helper "{% extends 'foo' %}{% block a %}hello{% endblock %}" nil "foo" "{% block a %}goodbye{% endblock %} {% block b %}potato{% endblock %}")))
+
+(define-test block-extends-nested
+  :parent block-extends
+  (is string=
+      "(hello world)"
+      (block-test-helper "{% extends 'foo' %}{% block a %}hello{% endblock %}" nil
+                         "foo" "{% extends 'bar' %}{% block b %}world{% endblock %}"
+                         "bar" "({% block a %}{% endblock %} {% block b %}{% endblock %})")))
+
+(defparameter LAYOUTTEMPLATE  "|{% block block1 %}block 1 from layout{% endblock %}
+|{% block block2 %}block 2 from layout{% endblock %}
+|{% block block3 %}
+{% block block4 %}nested block 4 from layout{% endblock %}
+{% endblock %}|")
+
+(defparameter LEVEL1TEMPLATE "{% extends 'layout' %}
+{% block block1 %}block 1 from level1{% endblock %}")
+
+(defparameter LEVEL2TEMPLATE "{% extends 'level1' %}
+{% block block2 %}{% block block5 %}nested block 5 from level2{%
+endblock %}{% endblock %}")
+
+(defparameter LEVEL3TEMPLATE "{% extends 'level2' %}
+{% block block5 %}block 5 from level3{% endblock %}
+{% block block4 %}block 4 from level3{% endblock %}")
+
+(defparameter LEVEL4TEMPLATE "{% extends 'level3' %}
+{% block block3 %}block 3 from level4{% endblock %}")
+
+(defparameter WORKINGTEMPLATE "{% extends 'layout' %}
+{% block block1 %}
+  {% if false %}
+    {% block block2 %}
+      this should workd
+    {% endblock %}
+  {% endif %}
+{% endblock %}")
+
+(defparameter DOUBLEEXTENDS "{% extends 'layout' %}
+{% extends 'layout' %}
+{% block block1 %}
+  {% if false %}
+    {% block block2 %}
+      this should workd
+    {% endblock %}
+  {% endif %}
+{% endblock %}")
+
+(define-test block-extends-layout
+  :parent block-extends
+  (is string=
+      "|block 1 from layout|block 2 from layout|nested block 4 from layout|"
+      (let ((ginjish-compiler::*trim-blocks* t))
+        (block-test-helper LAYOUTTEMPLATE nil
+                           "layout" LAYOUTTEMPLATE
+                           "level1" LEVEL1TEMPLATE
+                           "level2" LEVEL2TEMPLATE
+                           "level3" LEVEL3TEMPLATE
+                           "level4" LEVEL4TEMPLATE
+                           "working" WORKINGTEMPLATE
+                           "doublee" DOUBLEEXTENDS))))
+
+(define-test block-extends-level1
+  :parent block-extends
+  (is string=
+      "|block 1 from level1|block 2 from layout|nested block 4 from layout|"
+      (let ((ginjish-compiler::*trim-blocks* t))
+        (block-test-helper LEVEL1TEMPLATE nil
+                           "layout" LAYOUTTEMPLATE
+                           "level1" LEVEL1TEMPLATE
+                           "level2" LEVEL2TEMPLATE
+                           "level3" LEVEL3TEMPLATE
+                           "level4" LEVEL4TEMPLATE
+                           "working" WORKINGTEMPLATE
+                           "doublee" DOUBLEEXTENDS))))
+
+(define-test block-extends-level2
+  :parent block-extends
+  (is string=
+      "|block 1 from level1|nested block 5 from level2|nested block 4 from layout|"
+      (let ((ginjish-compiler::*trim-blocks* t))
+        (block-test-helper LEVEL2TEMPLATE nil
+                           "layout" LAYOUTTEMPLATE
+                           "level1" LEVEL1TEMPLATE
+                           "level2" LEVEL2TEMPLATE
+                           "level3" LEVEL3TEMPLATE
+                           "level4" LEVEL4TEMPLATE
+                           "working" WORKINGTEMPLATE
+                           "doublee" DOUBLEEXTENDS))))
+
+(define-test block-extends-level3
+  :parent block-extends
+  (is string=
+      "|block 1 from level1|block 5 from level3|block 4 from level3|"
+      (let ((ginjish-compiler::*trim-blocks* t))
+        (block-test-helper LEVEL3TEMPLATE nil
+                           "layout" LAYOUTTEMPLATE
+                           "level1" LEVEL1TEMPLATE
+                           "level2" LEVEL2TEMPLATE
+                           "level3" LEVEL3TEMPLATE
+                           "level4" LEVEL4TEMPLATE
+                           "working" WORKINGTEMPLATE
+                           "doublee" DOUBLEEXTENDS))))
+
+(define-test block-extends-level4
+  :parent block-extends
+  (is string=
+      "|block 1 from level1|block 5 from level3|block 3 from level4|"
+      (let ((ginjish-compiler::*trim-blocks* t))
+        (block-test-helper LEVEL4TEMPLATE nil
+                           "layout" LAYOUTTEMPLATE
+                           "level1" LEVEL1TEMPLATE
+                           "level2" LEVEL2TEMPLATE
+                           "level3" LEVEL3TEMPLATE
+                           "level4" LEVEL4TEMPLATE
+                           "working" WORKINGTEMPLATE
+                           "doublee" DOUBLEEXTENDS))))
 
 ;;; syntax
 

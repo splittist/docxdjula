@@ -809,8 +809,9 @@
           (compiled-template nil))
         (if (null super-template)
             (error "Missing super template: ~A" template-name)
-            (progn (funcall super-template stream)
-                   (signal 'extending)))))))
+            (let ((*blocks* (append *blocks* (template-blocks super-template))))
+              (funcall super-template stream)
+              (signal 'extending)))))))
 
 (defun split-parameters (parameters)
   (loop with start-keywords = nil
