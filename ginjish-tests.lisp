@@ -636,7 +636,29 @@
         (ginjish-compiler::render-template
          (ginjish-compiler::compile-template-string "{% include 'foo' without context %} {% include 'bar' %}") nil (list "quux" "hello")))))
 
-      
+
+;;; block / extends
+
+(defun block-test-helper (template-string context &rest templates)
+  (let ((ginjish-compiler::*loader* (apply #'ginjish-compiler::make-dict-loader templates)))
+    (ginjish-compiler::render-template
+     (ginjish-compiler::compile-template-string template-string) nil context)))
+
+(define-test block-extends
+  :parent compiler)
+
+(define-test block-simple
+  :parent block-extends
+  (is string=
+      "hello world"
+      (block-test-helper "{% block foo %}hello{% endblock %} {% block bar %}world{% endblock %}" nil)))
+
+(define-test block-extends-simple
+  :parent block-extends
+  (is string=
+      "hello world"
+      (block-test-helper "{% extends 'foo' %}{% block a %}hello{% endblock %}{% block b %}world{% endblock %}" nil "foo" "{% block a %}{% endblock %} {% block b %}{% endblock %}")))
+
 ;;; syntax
 
 (define-test syntax

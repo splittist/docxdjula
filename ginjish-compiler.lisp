@@ -779,7 +779,39 @@
                 (funcall compiled-template stream)
                 (let ((*context* nil)) ; FIXME basic context with standard globals
                   (funcall compiled-template stream))))))))
-                                 
+
+(defun save-block (name suite)
+  (setf (load-value *blocks* name) suite))
+
+(defun find-block (name)
+  (load-value *blocks* name))
+
+(defmethod compile-tagged-element ((tag (eql :block)) rest)
+  (let ((name (first rest))
+        (scoped (second rest))
+        (suite (compile-element (third rest))))
+    (save-block name suite)
+    (alexandria:named-lambda :block (stream)
+      (let ((compiled-block (find-block name)))
+        (if scoped
+            (funcall compiled-block stream)
+            (let ((*context* nil)) ; FIXME basic context with standard globals
+              (funcall compiled-block stream)))))))
+
+(define-condition extending () ())
+
+(defmethod compile-tagged-element ((tag (eql :extends)) rest)
+  (let ((template-name (compile-element (first rest))))
+    (alexandria:named-lambda :extends (stream)
+      (let ((super-template (funcall template-name stream)))
+        (etypecase super-template
+          (string (setf super-template (load-template *loader* super-template)))
+          (compiled-template nil))
+        (if (null super-template)
+            (error "Missing super template: ~A" template-name)
+            (progn (funcall super-template stream)
+                   (signal 'extending)))))))
+
 (defun split-parameters (parameters)
   (loop with start-keywords = nil
            for (name default supplied) in parameters
@@ -947,8 +979,11 @@
 (defgeneric render-template (template stream context &key &allow-other-keys)
   (:method ((template compiled-template) stream context &key &allow-other-keys)
     (serapeum:with-string (s stream)
-      (let* ((template-context (make-context *globals* (template-top-level template)))
+      (let* ((*blocks* (template-blocks template))
+             (template-context (make-context *globals* (template-top-level template)))
              (*context* (make-context template-context context)))
-        (funcall template s)))))
+        (handler-case
+            (funcall template s)
+          (extending () nil))))))
 
 
