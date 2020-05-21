@@ -782,6 +782,42 @@ endblock %}{% endblock %}")
                            "working" WORKINGTEMPLATE
                            "doublee" DOUBLEEXTENDS))))
 
+;;; import
+
+(define-test import
+  :parent compiler)
+
+(define-test import-simple
+  :parent import
+  (is string=
+      "hello world"
+      (block-test-helper "{% import 'foo' as foo %}{{foo.bar()}}"
+                         nil
+                         "foo" "{% macro bar() %}hello world{% endmacro %}"))
+  (is string=
+      "hello world"
+      (block-test-helper "{% import 'foo' as foo %}{{foo.bar()}}{{foo.quux}}"
+                         nil
+                         "foo" "{% macro bar() %}hello {% endmacro %}{% set quux = ' world' %}"))
+  (is string=
+      "hello world"
+      (block-test-helper "{% import 'foo' as foo %}{{foo.bar()}}{{foo.baz()}}"
+                         nil
+                         "foo" "{% macro baz() %} world{% endmacro %}{% macro bar() %}hello{% endmacro %}")))
+
+(define-test from-simple
+  :parent import
+  (is string=
+      "hello world"
+      (block-test-helper "{% from 'foo' import bar as b %}{{b()}}"
+                         nil
+                         "foo" "{% macro bar() %}hello world{% endmacro %}"))
+  (is string=
+      "hello world"
+      (block-test-helper "{% from 'foo' import bar, baz as quux %}{{bar()}}{{quux()}}"
+                         nil
+                         "foo" "{% macro baz() %} world{% endmacro %}{% macro bar() %}hello{% endmacro %}")))
+
 ;;; syntax
 
 (define-test syntax

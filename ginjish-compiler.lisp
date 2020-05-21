@@ -780,6 +780,42 @@
                 (let ((*context* nil)) ; FIXME basic context with standard globals
                   (funcall compiled-template stream))))))))
 
+(defgeneric copy-map (map)
+  (:method ((map list))
+    (copy-list map))
+  (:method ((map hash-table))
+    (alexandria:copy-hash-table map))
+  (:method ((map sequence))
+    (alexandria:copy-sequence (type-of map) map)))
+
+(defmethod compile-tagged-element ((tag (eql :import)) rest)
+  (let ((expr (compile-element (first rest)))
+        (target (second rest))
+        (context (third rest)))
+    (declare (ignore context)) ; FIXME context?
+    (alexandria:named-lambda :import (stream)
+      (let* ((candidate (funcall expr stream))
+             (compiled-template (load-template *loader* candidate)))
+        (if (null compiled-template)
+            (error "Missing template for import: ~A" candidate)
+            (let ((dict (copy-map (template-top-level compiled-template)))) ; FIXME exclude _
+              (setf (load-value *context* target) dict)))))))
+
+(defmethod compile-tagged-element ((tag (eql :from)) rest)
+  (let ((expr (compile-element (first rest)))
+        (aliases (second rest))
+        (context (third rest)))
+    (declare (ignore context)) ; FIXME context?
+    (alexandria:named-lambda :from (stream)
+      (let* ((candidate (funcall expr stream))
+             (compiled-template (load-template *loader* candidate)))
+        (if (null compiled-template)
+            (error "Missing template for from: ~A" candidate)
+            (let ((dict (template-top-level compiled-template)))
+              (loop for (external internal) in aliases
+                 do (setf (load-value *context* internal) ; FIXME unhappy path?
+                          (load-value dict external)))))))))
+
 (defun save-block (name suite)
   (setf (load-value *blocks* name) suite))
 

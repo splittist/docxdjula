@@ -832,14 +832,14 @@ if_stmt ::=  "if" assignment_expression ":" suite
 (defrule t-import (and (and t-statement-start ws* "import" ws*)
                        expression
                        (and ws "as" ws)
-                       target-list
+                       name
                        (? (and ws* (or "without" "with") ws "context"))
                        (and ws* t-statement-end))
-  (:destructure (start expr as targets with/out end)
+  (:destructure (start expr as target with/out end)
     (declare (ignore start as end))
     (list :import
           expr
-          targets
+          target
           (if with/out
               t
               (if (string= "with" (second with/out)) t nil)))))
@@ -869,7 +869,7 @@ if_stmt ::=  "if" assignment_expression ":" suite
   (:lambda (a)
     (if (consp a)
         (list (first a) (fifth a))
-        a)))
+        (list a a))))
 
 ;; with
 
