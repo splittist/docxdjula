@@ -30,56 +30,56 @@
 
 #|
 
-abs
+abs - numberify?
 attr
-batch
-capitalize
-center
-count
-d
-default
-dictsort
-e
-escape
-filesizeformat
-first
-float
-forceescape
-format
+batch - done
+capitalize - done
+center - done
+count - done
+d - done
+default - done Undefined
+dictsort - done
+e - done
+escape - done General escaping
+filesizeformat - done Bytes?
+first - done
+float - done double?
+forceescape - done General escaping
+format - done as per lisp
 groupby
-indent
-int
-join
-last
-length
-list
-lower
+indent - done
+int - done
+join - done
+last - done
+length - done
+list - done
+lower - done
 map
-min
-max
-pprint
-random
+min - done
+max - done
+pprint - done; no 'verbose' flag
+random - done
 reject
 rejectattr
-replace
-reverse
-round
+replace - done
+reverse - done
+round - done
 safe
 select
 selectattr
-slice
-sort
-string
-striptags
-sum
-title
-trim
-truncate
-unique
-upper
+slice - done
+sort - done
+string 
+striptags - done
+sum - done
+title - done
+trim - done
+truncate - done
+unique - done
+upper - done
 urlencode - see do-urlencode
-urlize
-wordcount
+urlize 
+wordcount - done
 wordwrap
 xmlattr
 tojson
@@ -206,6 +206,61 @@ tojson
                :by (ensure-keyword by)
                :reverse reverse))
 
+(defun do-sort (seq reverse case-sensitive attributes)
+  (if (and (stringp attributes) (find #\, attributes))
+    (let ((attributes (split-sequence:split-sequence #\, attributes)))
+      (loop for attribute in attributes
+         for seq = (do-sort seq reverse case-sensitive attribute)
+         finally (return seq)))
+    (let ((key (when attributes
+                 (lambda (item) (ginjish-compiler::load-value item attributes))))
+          (pred (cond ((and case-sensitive reverse) #'thing>)
+                      (case-sensitive #'thing<)
+                      (reverse #'thing-greaterp)
+                      (t #'thing-lessp))))
+      (stable-sort seq pred :key key))))
+
+(define-filter sort (seq &key reverse case-sensitive attribute)
+  (do-sort seq reverse case-sensitive attribute))
+
+(defun do-sum (seq start attribute)
+  (let ((key (when attribute
+               (lambda (item) (ginjish-compiler::load-value item attribute)))))
+    (reduce #'+ seq :key key :initial-value (or start 0))))
+
+(define-filter sum (seq &key start attribute)
+  (do-sum seq start attribute))
+
+(define-filter title (s)
+  (string-capitalize s))
+
+(defun do-truncate (s length killwords end leeway)
+  (if (< (length s) (+ length leeway))
+      s
+      (let ((sublen (- length (length end))))
+        (if killwords
+          (concatenate 'string (subseq s 0 sublen) end)
+          (let ((finish (position #\Space s :from-end t :end sublen)))
+            (concatenate 'string (subseq s 0 finish) end))))))
+
+(defparameter *leeway* 0)
+
+(define-filter truncate (s &key (length 255) killwords (end "...") leeway)
+  (do-truncate s length killwords end (or leeway *leeway*))) ; FIXME policy
+
+(defun do-unique (seq case-sensitive attribute)
+  (let ((test (if case-sensitive #'equalp #'equal))
+        (key (when attribute (lambda (item) (ginjish-compiler::load-value item attribute)))))
+    (remove-duplicates seq :test test :key key)))
+
+(define-filter unique (seq &key case_sensitive attribute)
+  (do-unique seq case_sensitive attribute))
+
+(define-filter wordcount (s)
+  (length (serapeum:words s)))
+
+
+
 (defparameter *escape-table*
   (serapeum:dict 'eql
    #\& "&amp;"
@@ -260,6 +315,21 @@ tojson
 (define-filter float (n &optional (default 0.0))
   (do-float n default))
 
+(defun do-int (n &optional (default 0))
+  (handler-bind ((type-error
+                  #'(lambda (condition)
+                      (declare (ignore condition))
+                      (return-from do-int default))))
+    (when (stringp n)
+      (setf n (esrap:parse 'ginjish-grammar::number n :junk-allowed t)))
+    (truncate n)))
+
+(define-filter int (n &optional (default 0))
+  (do-int n default))
+
+(define-filter last (seq)
+  (alexandria:last-elt seq))
+
 (define-filter forceescape (s)
   (escape s)) ; FIXME
 
@@ -288,6 +358,9 @@ tojson
 (define-filter length (seq)
   (length seq))
 
+(define-filter count (seq)
+  (length seq))
+
 (define-filter list (thing)
   (ginjish-compiler::to-list thing)) ; FIXME utils
 
@@ -296,6 +369,57 @@ tojson
 
 (define-filter upper (s)
   (string-upcase s))
+
+(define-filter lower (s)
+  (string-downcase s))
+
+(defun do-max (seq case-sensitive attribute)
+  (let ((pred (if case-sensitive
+                  #'thing>
+                  #'thing-greaterp))
+        (key (when attribute
+               (lambda (item)
+                 (ginjish-compiler::load-value item attribute)))))
+    (alexandria:extremum seq pred :key key)))
+
+(define-filter max (seq &key case_sensitive attribute)
+  (do-max seq case_sensitive attribute))
+
+(defun do-min (seq case-sensitive attribute)
+  (let ((pred (if case-sensitive
+                  #'thing<
+                  #'thing-lessp))
+        (key (when attribute
+               (lambda (item)
+                 (ginjish-compiler::load-value item attribute)))))
+    (alexandria:extremum seq pred :key key)))
+
+(define-filter min (seq &key case_sensitive attribute)
+  (do-min seq case_sensitive attribute))
+
+(define-filter pretty (x)
+  (with-output-to-string (s)
+    (pprint x s)))
+
+(define-filter random (seq)
+  (alexandria:random-elt seq))
+
+(define-filter replace (s old new &key count)
+  (serapeum:string-replace-all old s new :count count))
+
+(define-filter reverse (seq)
+  (reverse seq))
+
+(defun do-round (n precision method)
+  (let ((fn (serapeum:string-ecase method
+              ("common" #'fround)
+              ("ceil" #'fceiling)
+              ("floor" #'ffloor))))
+    (/ (funcall fn (* n (expt 10 precision))) (expt 10 precision))))
+
+(define-filter round (n &key (precision 0) (method "common"))
+  (do-round n precision method))
+
 
 ;;; tests
 
