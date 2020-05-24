@@ -5,9 +5,12 @@
 
 (cl:in-package #:ginjish-tests)
 
+(define-test all)
+
 ;;; parser
 
-(define-test parser)
+(define-test parser
+  :parent all)
 
 (define-test stringliteral
   :parent parser
@@ -178,7 +181,8 @@
 
 ;;; compiler
 
-(define-test compiler)
+(define-test compiler
+  :parent all)
 
 (defclass load-value-example ()
   ((a :initarg :a :accessor lve-a)
@@ -968,7 +972,8 @@ endblock %}{% endblock %}")
 
 ;;; lstrip-blocks
 
-(define-test lstrip-blocks)
+(define-test lstrip-blocks
+  :parent all)
 
 (cl-interpol:enable-interpol-syntax)
 
@@ -1163,7 +1168,8 @@ hello
 
 ;;; filters
 
-(define-test filters)
+(define-test filters
+  :parent all)
 
 (define-test filters-capitalize
   :parent filters
@@ -1342,5 +1348,6 @@ hello
 
 ;;; builtins
 
-(define-test builtins)
+(define-test builtins
+  :parent all)
 

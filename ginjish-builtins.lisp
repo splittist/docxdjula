@@ -30,7 +30,7 @@
 
 #|
 
-abs - numberify?
+abs - done
 attr
 batch - done
 capitalize - done
@@ -89,7 +89,8 @@ tojson
 (define-filter abs (n)
   (abs n))
 
-;;; TODO attr
+(define-filter attr (x attr) ; FIXME not quite?
+  (load-value x attr))
 
 (defgeneric make-sequence-like (seq len &key initial-element)
   (:method ((seq list) len &key initial-element)
@@ -97,7 +98,7 @@ tojson
   (:method ((seq string) len &key initial-element)
     (make-string len :initial-element initial-element)))
 
-(defun do-batch (seq n &optional fill)
+(defun do-batch (seq n fill)
   (let ((batches (serapeum:batches seq n))
         (rem (rem (length seq) n)))
     (if (and fill (not (zerop rem)))
@@ -111,7 +112,7 @@ tojson
 (define-filter batch (seq n &optional fill)
   (do-batch seq n fill))
 
-(defun do-slice (seq n &optional fill)
+(defun do-slice (seq n fill)
   (let ((length (length seq)))
     (multiple-value-bind (normal-bucket-size oversized-buckets)
         (truncate length n)
@@ -132,7 +133,7 @@ tojson
       s
       (replace s (string-upcase (elt s 0)) :end1 1)))
 
-(defun do-center (s &optional (width 80))
+(defun do-center (s width)
   (let* ((len (length s))
          (remainder (- width len))
          (leading (floor remainder 2))
@@ -142,7 +143,7 @@ tojson
 (define-filter center (s &optional (width 80))
   (do-center s width))
 
-(defun do-default (thing default &optional undefined)
+(defun do-default (thing default undefined)
   (declare (ignore undefined)) ; FIXME - change from jinja
   (if thing ; FIXME - is 0 truthy?
       thing
@@ -199,7 +200,7 @@ tojson
 (defun ensure-keyword (thing) ; FIXME non-strings; general calling convention
   (if (keywordp thing)
       thing
-      (ginjish-grammar::read-keyword thing)))
+      (read-keyword thing)))
 
 (define-filter dictsort (dict &key case_sensitive (by :key) reverse)
   (do-dictsort dict :case-sensitive case_sensitive
@@ -213,7 +214,7 @@ tojson
          for seq = (do-sort seq reverse case-sensitive attribute)
          finally (return seq)))
     (let ((key (when attributes
-                 (lambda (item) (ginjish-compiler::load-value item attributes))))
+                 (lambda (item) (load-value item attributes))))
           (pred (cond ((and case-sensitive reverse) #'thing>)
                       (case-sensitive #'thing<)
                       (reverse #'thing-greaterp)
@@ -225,7 +226,7 @@ tojson
 
 (defun do-sum (seq start attribute)
   (let ((key (when attribute
-               (lambda (item) (ginjish-compiler::load-value item attribute)))))
+               (lambda (item) (load-value item attribute)))))
     (reduce #'+ seq :key key :initial-value (or start 0))))
 
 (define-filter sum (seq &key start attribute)
@@ -250,7 +251,7 @@ tojson
 
 (defun do-unique (seq case-sensitive attribute)
   (let ((test (if case-sensitive #'equalp #'equal))
-        (key (when attribute (lambda (item) (ginjish-compiler::load-value item attribute)))))
+        (key (when attribute (lambda (item) (load-value item attribute)))))
     (remove-duplicates seq :test test :key key)))
 
 (define-filter unique (seq &key case_sensitive attribute)
@@ -309,7 +310,7 @@ tojson
                       (declare (ignore condition))
                       (return-from do-float default))))
     (when (stringp n)
-      (setf n (esrap:parse 'ginjish-grammar::number n :junk-allowed t)))
+      (setf n (ginjish-grammar:parse-number n :junk-allowed t)))
     (float n 0d0))) ; FIXME double?
 
 (define-filter float (n &optional (default 0.0))
@@ -321,7 +322,7 @@ tojson
                       (declare (ignore condition))
                       (return-from do-int default))))
     (when (stringp n)
-      (setf n (esrap:parse 'ginjish-grammar::number n :junk-allowed t)))
+      (setf n (ginjish-grammar:parse-number n :junk-allowed t)))
     (truncate n)))
 
 (define-filter int (n &optional (default 0))
@@ -362,7 +363,7 @@ tojson
   (length seq))
 
 (define-filter list (thing)
-  (ginjish-compiler::to-list thing)) ; FIXME utils
+  (to-list thing)) ; FIXME utils
 
 (define-filter join (strings &optional sep)
   (serapeum:string-join strings sep))
@@ -379,7 +380,7 @@ tojson
                   #'thing-greaterp))
         (key (when attribute
                (lambda (item)
-                 (ginjish-compiler::load-value item attribute)))))
+                 (load-value item attribute)))))
     (alexandria:extremum seq pred :key key)))
 
 (define-filter max (seq &key case_sensitive attribute)
@@ -391,7 +392,7 @@ tojson
                   #'thing-lessp))
         (key (when attribute
                (lambda (item)
-                 (ginjish-compiler::load-value item attribute)))))
+                 (load-value item attribute)))))
     (alexandria:extremum seq pred :key key)))
 
 (define-filter min (seq &key case_sensitive attribute)
@@ -551,34 +552,34 @@ le
   (not (equal x other)))
 
 (define-test > (x other)
-  (ginjish-compiler::gt x other))
+  (ginjish-compiler:gt x other))
 
 (define-test gt (x other)
-  (ginjish-compiler::gt x other))
+  (ginjish-compiler:gt x other))
 
 (define-test greaterthan (x other)
-  (ginjish-compiler::gt x other))
+  (ginjish-compiler:gt x other))
 
 (define-test >= (x other)
-  (ginjish-compiler::gte x other))
+  (ginjish-compiler:gte x other))
 
 (define-test ge (x other)
-  (ginjish-compiler::gte x other))
+  (ginjish-compiler:gte x other))
 
 (define-test < (x other)
-  (ginjish-compiler::lt x other))
+  (ginjish-compiler:lt x other))
 
 (define-test lt (x other)
-  (ginjish-compiler::lt x other))
+  (ginjish-compiler:lt x other))
 
 (define-test lessthan (x other)
-  (ginjish-compiler::lt x other))
+  (ginjish-compiler:lt x other))
 
 (define-test <= (x other)
-  (ginjish-compiler::lte x other))
+  (ginjish-compiler:lte x other))
 
 (define-test le (x other)
-  (ginjish-compiler::lte x other))
+  (ginjish-compiler:lte x other))
 
 ;;; globals
 

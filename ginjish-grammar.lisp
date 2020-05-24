@@ -230,7 +230,7 @@
     ("==" :equal)
     ("in" :in)
     ("not-in" :not-in)
-    (t (error "c-op->lisp got: ~S" op))))
+    (t (ginjish-conditions:signal-template-syntax-error "c-op->lisp got: ~S" op))))
 
 (defrule comp-operator (or ">=" "<=" "!=" "<" ">" "=="
                            not-in)
@@ -287,7 +287,7 @@
     ("//" :floor)
     ("/"  :div)
     ("%"  :mod) ; FIXME also printf-style string formatting
-    (t (error "m-op->lisp got: ~S" op))))
+    (t (ginjish-conditions:signal-template-syntax-error "m-op->lisp got: ~S" op))))
 
 (defrule m-expr-sub (or (and m-expr ws* "*" ws* u-expr)
                         #+(or)(and m-expr ws* "@" ws* u-expr)
@@ -733,7 +733,8 @@ if_stmt ::=  "if" assignment_expression ":" suite
 (defrule t-block (and t-block-start suite t-block-end)
   (:destructure ((name scoped) suite check-name)
     (when (and check-name (not (equal name check-name)))
-      (error "Block name mismatch. Got '~A' but expected '~A'." check-name name))
+      (ginjish-conditions:signal-template-syntax-error
+       "Block name mismatch. Got '~A' but expected '~A'." check-name name))
     (list :block name scoped suite)))
 
 (defrule t-block-start (and
@@ -933,6 +934,15 @@ if_stmt ::=  "if" assignment_expression ":" suite
 (defrule t-expression (and t-expression-start ws* expression ws* t-expression-end)
   (:lambda (e)
     `(:expression ,(third e))))
+
+
+;;; parse-template / parse-number
+
+(defun parse-template (string)
+  (parse 'template string))
+
+(defun parse-number (string &key junk-allowed)
+  (parse 'number string :junk-allowed junk-allowed))
 
 ;;; util
 

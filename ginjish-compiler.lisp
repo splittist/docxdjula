@@ -2,7 +2,7 @@
 
 (cl:in-package #:ginjish-compiler)
 
-(defgeneric symbolize (thing)
+#+(or)(defgeneric symbolize (thing)
   (:method ((thing symbol))
     thing)
   (:method ((thing string))
@@ -20,7 +20,7 @@
      do (alexandria:if-let ((fn (find-filter name)))
           (let ((arguments (mapcar (alexandria:rcurry #'funcall stream) args)))
             (setf result (apply fn result arguments)))
-          (error "Unknown filter '~A'" name))
+          (ginjish-conditions:signal-template-filter-error "Unknown filter '~A'" name))
      finally (return result)))
 
 (defun find-test (name)
@@ -30,18 +30,18 @@
   (alexandria:if-let ((fn (find-test name)))
     (let ((arguments (mapcar (alexandria:rcurry #'funcall stream) args)))
       (apply fn (funcall value stream) arguments))
-    (error "Unknown test '~A'" name)))
+    (ginjish-conditions:template-test-error "Unknown test '~A'" name)))
 
-(defun read-keyword (string)
+#+(or)(defun read-keyword (string)
   (serapeum:with-standard-input-syntax
     (let ((*package* (find-package :keyword))
           (*read-eval* nil))
       (read-from-string string))))
 
-(defun name-equal (a b)
+#+(or)(defun name-equal (a b)
   (string-equal (princ-to-string a) (princ-to-string b)))
 
-(defgeneric load-value (map key)
+#+(or)(defgeneric load-value (map key)
   (:method ((map list) (key integer))
     (elt map key))
   (:method ((map list) key)
@@ -70,7 +70,7 @@
   (:method ((map sequence) (key integer))
     (elt map key)))
 
-(defun set-plist-value (list key value)
+#+(or)(defun set-plist-value (list key value)
   (loop for (k v) on list by #'cddr
      with collected = nil
      collect k into res
@@ -83,7 +83,7 @@
          (setf res (list* key value res)))
        (return res)))
 
-(defgeneric set-load-value (map key value) ; FIXME missing a step?
+#+(or)(defgeneric set-load-value (map key value) ; FIXME missing a step?
   (:method :around (map key value)
     (declare (ignore map key))
     (values value (call-next-method)))
@@ -125,7 +125,7 @@
     (setf (elt map key) value)
     map))
 
-(define-setf-expander load-value (place key
+#+(or)(define-setf-expander load-value (place key
                                   &aux (new-val (gensym "NEW-VAL"))
                                     (place-store (gensym "PLACE"))
                                   &environment env)
@@ -140,30 +140,30 @@
                ,new-val))
           `(load-value ,place ,key)))
 
-(defclass context ()
+#+(or)(defclass context ()
   ((%map :initarg :map :reader context-map)
    (%parent :initarg :parent :initform nil)))
 
-(defmethod print-object ((object context) stream)
+#+(or)(defmethod print-object ((object context) stream)
   (print-unreadable-object (object stream :type t :identity t)
     (with-slots (%map %parent) object
       (print-expression %map stream)
       (format stream " (~A)" %parent))))
 
-(defun make-context (parent map)
+#+(or)(defun make-context (parent map)
   (make-instance 'context :parent parent :map map))
 
-(defmethod load-value ((map context) key)
+#+(or)(defmethod load-value ((map context) key)
   (with-slots (%map %parent) map
     (or (load-value %map key)
         (and %parent (load-value %parent key)))))
 
-(defmethod set-load-value ((map context) key value)
+#+(or)(defmethod set-load-value ((map context) key value)
   (setf (load-value (slot-value map '%map) key)
         value)
   map)
 
-(defgeneric truthy (thing)
+#+(or)(defgeneric truthy (thing)
   (:method ((thing (eql 0)))
     nil)
   (:method ((thing (eql 0.0)))
@@ -183,7 +183,7 @@
   (:method ((element cons))
     (if (symbolp (first element))
         (compile-tagged-element (first element) (rest element))
-        (error "Unknown element: ~S" element))))
+        (ginjish-conditions:signal-template-compilation-error "Unknown element: ~S" element))))
 
 (defmethod compile-element ((element (eql :comment)))
   (constantly nil))
@@ -246,7 +246,7 @@
 (defmethod compile-tagged-element ((tag (eql :string)) rest)
   (constantly (first rest)))
 
-(defgeneric print-expression (thing stream &optional recursive)
+#+(or)(defgeneric print-expression (thing stream &optional recursive)
   (:method (thing stream &optional recursive)
     (declare (ignore recursive))
     (princ thing stream))
@@ -299,7 +299,7 @@
          do (princ ", " stream))
     (princ "}" stream)))
 
-(defun print-expression-to-string (thing)
+#+(or)(defun print-expression-to-string (thing)
   (with-output-to-string (s)
     (print-expression thing s)))
 
@@ -531,7 +531,8 @@
   (:method ((left number) (right number))
     (mod left right))
   (:method ((left string) right)
-    (error "printf-style string formatting with '%' not implemented.")))
+    (ginjish-conditions:signal-template-compilation-error
+     "printf-style string formatting with '%' not implemented.")))
 
 (define-binary-compiler :mod pmod)
 
@@ -634,7 +635,8 @@
   (:method ((object string) indices)
     (unless (and (= 1 (length indices))
                  (integerp (first indices)))
-      (error "Malformed attribute for string"))
+      (ginjish-conditions:signal-template-compilation-error
+       "Malformed attribute for string: ~A" indices))
     (let ((index (first indices)))
       (when (minusp index)
         (incf index (length object)))
@@ -774,13 +776,14 @@
         (if (null compiled-template)
             (if ignore-missing
                 nil
-                (error "Missing template: ~A" candidates))
+                (ginjish-conditions:signal-template-not-found-error
+		 "Missing template for include: ~A" candidates))
             (if context
                 (funcall compiled-template stream)
                 (let ((*context* nil)) ; FIXME basic context with standard globals
                   (funcall compiled-template stream))))))))
 
-(defgeneric copy-map (map)
+#+(or)(defgeneric copy-map (map)
   (:method ((map list))
     (copy-list map))
   (:method ((map hash-table))
@@ -797,7 +800,8 @@
       (let* ((candidate (funcall expr stream))
              (compiled-template (load-template *loader* candidate)))
         (if (null compiled-template)
-            (error "Missing template for import: ~A" candidate)
+            (ginjish-conditions:signal-template-not-found-error
+	     "Missing template for import: ~A" candidate)
             (let ((dict (copy-map (template-top-level compiled-template)))) ; FIXME exclude _
               (setf (load-value *context* target) dict)))))))
 
@@ -810,7 +814,8 @@
       (let* ((candidate (funcall expr stream))
              (compiled-template (load-template *loader* candidate)))
         (if (null compiled-template)
-            (error "Missing template for from: ~A" candidate)
+            (ginjish-conditions:signal-template-not-found-error
+	     "Missing template for from: ~A" candidate)
             (let ((dict (template-top-level compiled-template)))
               (loop for (external internal) in aliases
                  do (setf (load-value *context* internal) ; FIXME unhappy path?
@@ -829,10 +834,13 @@
     (save-block name suite)
     (alexandria:named-lambda :block (stream)
       (let ((compiled-block (find-block name)))
-        (if scoped
-            (funcall compiled-block stream)
-            (let ((*context* nil)) ; FIXME basic context with standard globals
-              (funcall compiled-block stream)))))))
+	(if (null compiled-block)
+	    (ginjish-conditions:signal-template-block-not-found-error
+	     "Missing block named: ~A" name)
+            (if scoped
+		(funcall compiled-block stream)
+		(let ((*context* nil)) ; FIXME basic context with standard globals
+		  (funcall compiled-block stream))))))))
 
 (define-condition extending () ())
 
@@ -844,7 +852,8 @@
           (string (setf super-template (load-template *loader* super-template)))
           (compiled-template nil))
         (if (null super-template)
-            (error "Missing super template: ~A" template-name)
+            (ginjish-conditions:signal-template-not-found-error
+	     "Missing super template: ~A" template-name)
             (let ((*blocks* (append *blocks* (template-blocks super-template))))
               (funcall super-template stream)
               (signal 'extending)))))))
@@ -863,7 +872,7 @@
            else collect name into positionals
              finally (return (list positionals keywords))))
 
-(defun getf-name (plist name)
+#+(or)(defun getf-name (plist name)
   (loop for (key val) on plist by #'cddr
      when (name-equal name key)
      do (return-from getf-name (values val t))
@@ -891,7 +900,7 @@
                       (funcall body stream)))))))
       (constantly nil)))
 
-(defgeneric to-list (thing) ; FIXME more general iterable?
+#+(or)(defgeneric to-list (thing) ; FIXME more general iterable?
   (:method (thing)
     (coerce thing 'list))
   (:method ((thing hash-table))
