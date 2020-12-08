@@ -83,6 +83,21 @@
    str
    '(0 " " 1))) ; replace with groups 0 and 1 (zero-based in list format)
 
+(defun ensure-space-preservation (str)
+    (cl-ppcre:regex-replace-all
+     #?rx"
+          (?s)              # . matches #\Newline
+          <w:t>             # text tag without xml:space = preserve
+          ((?:(?!<w:t>).)*) # any amount of non-text tag
+          ({{.*?}}|
+           {%.*?%}|
+           {\#.*?\#}|
+           {\$.*?\$}|
+           {_.*?_})         # the subsequent template tag
+          " 
+     str
+     #?rx"<w:t\ xml:space=\"preserve\">\1\2"))
+
 (defun clean-tags (str)
   (let ((sublist '((#\" . #\“) (#\" . #\”) (#\' . #\‘) (#\' . #\’))))
     (flet ((subs (match)
@@ -97,6 +112,7 @@
 (defun tidy-xml (str)
   (setf str (strip-tags-between-braces str))
   (setf str (strip-tags-within-braces str))
+  (setf str (ensure-space-preservation str))
   (setf str (strip-enclosing-wml-tag str "p"))
   (setf str (strip-enclosing-wml-tag str "r"))
   (setf str (strip-enclosing-wml-tag str "tr"))
