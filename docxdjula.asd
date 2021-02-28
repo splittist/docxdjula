@@ -9,20 +9,8 @@
   :depends-on (#:djula #:docxplora
 		       #:cl-ppcre #:cl-interpol
 		       #:uiop #:alexandria #:split-sequence
-		       #:lquery
-		       #:esrap #:lorem-ipsum) ; for gingish
+		       #:lquery)
   :components ((:file "package")
 	       (:file "regex")
-	       (:file "ginjish-package")
-	       (:file "ginjish-specials")
-	       (:file "ginjish-conditions")
-	       (:file "ginjish-utils")
-	       (:file "ginjish-builtins")
-	       (:file "ginjish-grammar")
-	       (:file "ginjish-compiler")
 	       (:file "docxdjula")
 	       (:file "questionnaire")))
-
-(asdf:defsystem #:ginjish-tests
-  :depends-on (#:docxdjula #:parachute)
-  :components ((:file "ginjish-tests")))
