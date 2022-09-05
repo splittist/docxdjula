@@ -114,7 +114,7 @@
 	  (djula::*block-alist* nil))
       (make-instance 'compiled-docx-template :template-file template-file))))
 
-(defclass docx-file-store (djula:file-store)
+(defclass docx-file-store (djula:filesystem-template-store)
   ())
 
 (defmethod djula:fetch-template ((store docx-file-store) name)
